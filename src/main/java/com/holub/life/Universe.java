@@ -1,19 +1,14 @@
 package com.holub.life;
 
-import java.io.*;
-
-import java.awt.*;
-import javax.swing.*;
-import java.awt.event.*;
-
 import com.holub.io.Files;
 import com.holub.ui.MenuSite;
 
-import com.holub.life.Cell;
-import com.holub.life.Storable;
-import com.holub.life.Clock;
-import com.holub.life.Neighborhood;
-import com.holub.life.Resident;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 /**
  * The Universe is a mediator that sits between the Swing
@@ -27,8 +22,15 @@ import com.holub.life.Resident;
  */
 
 public class Universe extends JPanel
-{	private 		final Cell  	outermostCell;
+{
+	private 		final Cell  	outermostCell;
 	private static	final Universe 	theInstance = new Universe();
+
+	private 		final PatternCatalog 	patternCatalog = new PatternCatalog();
+	private			final PatternPlacer 	patternPlacer = new PatternPlacer();
+	private 		final Object 			boardLock = new Object();
+	private 			  LifePattern 		pendingPattern;
+	private 			  JMenuItem 			editPresetItem;
 
 	/** The default height and width of a Neighborhood in cells.
 	 *  If it's too big, you'll run too slowly because
@@ -93,11 +95,24 @@ public class Universe extends JPanel
 
 		addMouseListener					//{=Universe.mouse}
 		(	new MouseAdapter()
-			{	public void mousePressed(MouseEvent e)
-				{	Rectangle bounds = getBounds();
+			{
+				/**
+				 * Places the selected preset or forwards the click to the board for a cell toggle.
+				 *
+				 * @param e mouse press with coordinates relative to the game panel
+				 */
+				@Override
+				public void mousePressed( MouseEvent e )
+				{	if( pendingPattern != null )
+					{	placePendingPattern( e.getPoint() ); // Consume the click as a placement attempt.
+						return;
+					}
+
+					// The board expects bounds relative to the panel, rather than its parent.
+					Rectangle bounds = getBounds();
 					bounds.x = 0;
 					bounds.y = 0;
-					outermostCell.userClicked(e.getPoint(),bounds);
+					outermostCell.userClicked( e.getPoint(), bounds );
 					repaint();
 				}
 			}
@@ -130,6 +145,8 @@ public class Universe extends JPanel
 			}
 		);
 
+		createPresetMenu(); // Register preset menu
+
 		MenuSite.addLine
 		(	this, "Grid", "Exit",
 			new ActionListener()
@@ -139,20 +156,7 @@ public class Universe extends JPanel
 			}
 		);
 
-		Clock.instance().addClockListener //{=Universe.clock.subscribe}
-		(	new Clock.Listener()
-			{	public void tick()
-				{	if( outermostCell.figureNextState
-						   ( Cell.DUMMY,Cell.DUMMY,Cell.DUMMY,Cell.DUMMY,
-							 Cell.DUMMY,Cell.DUMMY,Cell.DUMMY,Cell.DUMMY
-						   )
-					  )
-					{	if( outermostCell.transition() )
-							refreshNow();
-					}
-				}
-			}
-		);
+		Clock.instance().addClockListener( this::advanceGeneration ); //{=Universe.clock.subscribe}
 	}
 
 	/** Singleton Accessor. The Universe object itself is manufactured
@@ -161,6 +165,143 @@ public class Universe extends JPanel
 
 	public static Universe instance()
 	{	return theInstance;
+	}
+
+	/**
+	 * Registers the Grid preset submenu in catalog order, followed by actions
+	 * that act on the current selection. Editing starts disabled until a pattern
+	 * is selected.
+	 */
+	private void createPresetMenu()
+	{	String menu = "Grid:Preset";
+
+		// Bind each name to the action that requests its own working copy.
+		for( String name : patternCatalog.names() )
+			MenuSite.addLine( this, menu, name, event -> selectPattern( name ) );
+
+		// Separate preset selection from actions that use the pending copy.
+		MenuSite.addLine( this, menu, "-", null );
+		String editLabel = "Edit Selected";
+		MenuSite.addLine( this, menu, editLabel, event -> editSelectedPattern() );
+		editPresetItem = MenuSite.getMyMenuItem( this, menu, editLabel );
+		editPresetItem.setEnabled( false );
+
+		// Transform only the pending instance when there is one to place.
+		MenuSite.addLine( this, menu, "Rotate Clockwise", event -> {
+			if( pendingPattern != null )
+				pendingPattern.rotateClockwise();
+		} );
+		MenuSite.addLine( this, menu, "Flip Horizontally", event -> {
+			if( pendingPattern != null )
+				pendingPattern.flipHorizontally();
+		} );
+		MenuSite.addLine( this, menu, "Cancel Placement", event -> cancelPlacement() );
+	}
+
+	/**
+	 * Pauses the simulation and replaces any pending selection with a fresh copy
+	 * of a catalog preset. The crosshair indicates that the next board click
+	 * attempts to place the copy.
+	 *
+	 * @param name exact name of a registered preset
+	 */
+	private void selectPattern( String name )
+	{	Clock.instance().stop();
+
+		// Wait for any generation update before entering placement mode.
+		synchronized( boardLock )
+		{	pendingPattern = patternCatalog.copyOf( name );
+		}
+
+		// Make editing available and show the placement cursor.
+		editPresetItem.setEnabled( true );
+		setCursor( Cursor.getPredefinedCursor( Cursor.CROSSHAIR_CURSOR ) );
+	}
+
+	/**
+	 * Opens a modal editor for the current pending pattern. Applying edits
+	 * replaces the pending copy and keeps placement active. Dismissing the editor
+	 * leaves the prior copy selected. With no pending pattern, this does nothing.
+	 */
+	private void editSelectedPattern()
+	{	if( pendingPattern == null )
+			return;
+
+		// Let the dialog own the draft and wait without holding the board lock.
+		PresetEditorDialog editor = new PresetEditorDialog( this, pendingPattern, outermostCell.widthInCells() );
+		LifePattern editedPattern = editor.showEditor();
+
+		// Publish only an applied result to the placement flow.
+		if( editedPattern != null )
+		{	synchronized( boardLock )
+			{	pendingPattern = editedPattern;
+			}
+		}
+	}
+
+	/**
+	 * Discards the pending copy and restores normal board clicks. The board
+	 * contents and the catalog prototype are unaffected.
+	 */
+	private void cancelPlacement()
+	{	synchronized( boardLock ) // The clock listener also checks the pending state.
+		{	pendingPattern = null;
+		}
+		// Restore the controls used when no preset is selected.
+		editPresetItem.setEnabled( false );
+		setCursor( null );
+	}
+
+	/**
+	 * Attempts to place the pending pattern with its upper-left corner at the
+	 * clicked board cell. Success consumes the selection and repaints the board.
+	 * If the attempt fails, the selection stays active so the user can try again.
+	 *
+	 * @param location panel-relative pixel coordinates of the mouse press
+	 */
+	private void placePendingPattern( Point location )
+	{	int pixelsPerCell = getWidth() / outermostCell.widthInCells();
+		boolean placed = false;
+
+		// Validate the click before converting pixels to board coordinates.
+		if( pixelsPerCell > 0 && contains( location ) )
+		{	synchronized( boardLock ) // Keep the board stable through the entire placement.
+			{	placed = patternPlacer.place( outermostCell, pendingPattern,
+						location.x / pixelsPerCell, location.y / pixelsPerCell );
+				if( placed )
+				{	Clock.instance().stop(); // Leave the placed pattern ready for an explicit tick.
+					pendingPattern = null;
+				}
+			}
+		}
+
+		// Update Swing controls or show the retry message after releasing the lock.
+		if( placed )
+		{	editPresetItem.setEnabled( false );
+			setCursor( null );
+			repaint();
+		}
+		else
+		{	JOptionPane.showMessageDialog( this, "The pattern does not fit at that position." );
+		}
+	}
+
+	/**
+	 * Handles a clock tick while no preset is pending. Computes and applies the
+	 * next generation under the same lock used for placement and requests a
+	 * redraw if the board changed.
+	 */
+	private void advanceGeneration()
+	{	synchronized( boardLock ) // Serialize generation updates with preset placement.
+		{	if( pendingPattern != null )
+				return;
+
+			// Evaluate the board before applying the next generation, then redraw changes.
+			if( outermostCell.figureNextState( Cell.DUMMY, Cell.DUMMY, Cell.DUMMY, Cell.DUMMY,
+					Cell.DUMMY, Cell.DUMMY, Cell.DUMMY, Cell.DUMMY )
+					&& outermostCell.transition() )
+				refreshNow();
+		}
 	}
 
 	private void doLoad()
