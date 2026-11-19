@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 730 425" width="730" height="425" font-family="Arial, Apple SD Gothic Neo, sans-serif" role="img" aria-labelledby="title">
+<title id="title">사용자가 게임판을 편집하고 실행 취소 및 다시 실행하는 조건</title>
+<defs><marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="9" markerHeight="9" orient="auto"><path d="M1 1 L11 6 L1 11" fill="none" stroke="#222"/></marker><marker id="inherits" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L13 7 L1 13 Z" fill="white" stroke="#222"/></marker></defs>
+<rect width="100%" height="100%" fill="white"/>
+<rect x="215" y="22" width="486" height="375" fill="white" stroke="#222"/>
+<text x="458" y="57" text-anchor="middle" font-size="18" font-weight="400" fill="#222">게임판 편집 기록</text>
+<g fill="none" stroke="#222" stroke-width="1.65"><circle cx="75" cy="156" r="15"/><path d="M75 171V219 M47 185H103 M75 219L53 249 M75 219L97 249"/></g>
+<text x="75" y="277" text-anchor="middle" font-size="18" font-weight="400" fill="#222">사용자</text>
+<polyline points="103,185 279,109" fill="none" stroke="#222" stroke-width="1.25"/>
+<ellipse cx="450" cy="109" rx="171" ry="31" fill="white" stroke="#222"/>
+<text x="450" y="115" text-anchor="middle" font-size="17" font-weight="400" fill="#222">편집 또는 한 세대 진행</text>
+<text x="450" y="163" text-anchor="middle" font-size="14" font-weight="400" fill="#222">클릭 · Clear · 프리셋 배치 · 경계 변경 · Tick</text>
+<polyline points="103,185 279,212" fill="none" stroke="#222" stroke-width="1.25"/>
+<ellipse cx="450" cy="212" rx="171" ry="31" fill="white" stroke="#222"/>
+<text x="450" y="218" text-anchor="middle" font-size="17" font-weight="400" fill="#222">E 마지막 작업 실행 취소</text>
+<text x="450" y="266" text-anchor="middle" font-size="14" font-weight="400" fill="#222">정지 중이며 취소할 기록이 있을 때</text>
+<polyline points="103,185 279,315" fill="none" stroke="#222" stroke-width="1.25"/>
+<ellipse cx="450" cy="315" rx="171" ry="31" fill="white" stroke="#222"/>
+<text x="450" y="321" text-anchor="middle" font-size="17" font-weight="400" fill="#222">E 취소한 작업 다시 실행</text>
+<text x="450" y="369" text-anchor="middle" font-size="14" font-weight="400" fill="#222">정지 중이며 다시 실행할 기록이 있을 때</text>
+</svg>
