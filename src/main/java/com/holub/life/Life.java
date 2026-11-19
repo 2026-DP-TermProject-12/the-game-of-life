@@ -30,6 +30,10 @@ public final class Life extends JFrame
 		getContentPane().setLayout	( new BorderLayout()	);
 		getContentPane().add( Universe.instance(), BorderLayout.CENTER); //{=life.java.install}
 
+		// The clock no longer creates its own menu. Install it after
+		// the Universe so the "Go" menu still follows the "Grid" menu.
+		new ClockMenu( Clock.instance() ).install();
+
 		pack();
 		setVisible( true );
 	}
