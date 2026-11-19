@@ -14,12 +14,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 /**
- * The Universe is a mediator that sits between the Swing
- * event model and the Life classes. It is also a singleton,
- * accessed via Universe.instance(). It handles all
- * Swing events and translates them into requests to the
- * outermost Neighborhood. It also creates the Composite
- * Neighborhood.
+ * Coordinates board input, preset actions, boundary selection,
+ * and persistence between Swing and the Life model.
+ * Creates the composite board and exposes a singleton instance
+ * through Universe.instance(). Generation updates and persistence
+ * are delegated to LifeBoard.
  *
  * @include /etc/license.txt
  */
@@ -53,14 +52,9 @@ public class Universe extends JPanel
 	 */
 	private static final int  DEFAULT_CELL_SIZE = 8;
 
-	// The constructor is private so that the universe can be created
-	// only by an outer-class method [Neighborhood.createUniverse()].
-
+	// The private constructor prevents external instantiation.
 	private Universe()
-	{	// Create the nested Cells that comprise the "universe." A bug
-		// in the current implementation causes the program to fail
-		// miserably if the overall size of the grid is too big to fit
-		// on the screen.
+	{	// Create the nested Cells that comprise the composite board.
 
 		outermostCell = new Neighborhood
 						(	DEFAULT_GRID_SIZE,
@@ -164,10 +158,7 @@ public class Universe extends JPanel
 	{	MenuSite.getMyMenuItem( this, BOUNDARY_MENU, null ).setText( "Boundary (" + label + ")" );
 	}
 
-	/** Singleton Accessor. The Universe object itself is manufactured
-	 *  in Neighborhood.createUniverse()
-	 */
-
+	/** Returns the singleton created during class initialization. */
 	public static Universe instance()
 	{	return theInstance;
 	}
@@ -357,15 +348,10 @@ public class Universe extends JPanel
         }
     }
 
-	/** Force a screen refresh by queing a request on
-	 *  the Swing event queue. This is an example of the
-	 *  Active Object pattern (not covered by the Gang of Four).
-	 *  This method is called on every clock tick. Note that
-	 *  the redraw() method on a given <code>Cell</code>
-	 *  does nothing if the <code>Cell</code> doesn't
-	 *  have to be refreshed.
+	/**
+	 * Queues an incremental redraw on the Swing event thread
+	 * after a generation changes the board.
 	 */
-
     private void refreshNow()
     {	SwingUtilities.invokeLater( new Runnable()
         {
