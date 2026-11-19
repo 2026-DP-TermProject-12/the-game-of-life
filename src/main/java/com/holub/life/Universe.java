@@ -27,7 +27,10 @@ import com.holub.life.Resident;
  */
 
 public class Universe extends JPanel
-{	private 		final Cell  	outermostCell;
+{
+	private final Neighborhood outermostCell;
+	private final LifeBoard board;
+	private static final String BOUNDARY_MENU = "Grid:Boundary";
 	private static	final Universe 	theInstance = new Universe();
 
 	/** The default height and width of a Neighborhood in cells.
@@ -60,6 +63,8 @@ public class Universe extends JPanel
 								new Resident()
 							)
 						);
+
+		board = new LifeBoard( outermostCell );
 
 		final Dimension PREFERRED_SIZE =
 						new Dimension
@@ -139,20 +144,26 @@ public class Universe extends JPanel
 			}
 		);
 
-		Clock.instance().addClockListener //{=Universe.clock.subscribe}
-		(	new Clock.Listener()
-			{	public void tick()
-				{	if( outermostCell.figureNextState
-						   ( Cell.DUMMY,Cell.DUMMY,Cell.DUMMY,Cell.DUMMY,
-							 Cell.DUMMY,Cell.DUMMY,Cell.DUMMY,Cell.DUMMY
-						   )
-					  )
-					{	if( outermostCell.transition() )
-							refreshNow();
-					}
-				}
-			}
-		);
+		MenuSite.addLine( this, BOUNDARY_MENU, "Fixed",
+				e -> selectBoundary( BoundaryPolicy.FIXED, "Fixed" ) );
+		MenuSite.addLine( this, BOUNDARY_MENU, "Wrap Around",
+				e -> selectBoundary( BoundaryPolicy.WRAP_AROUND, "Wrap Around" ) );
+		updateBoundaryMenuLabel( "Fixed" );
+
+		Clock.instance().addClockListener( () -> {
+			if( board.step() )
+				refreshNow();
+		} );
+	}
+
+	private void selectBoundary( BoundaryPolicy policy, String label )
+	{	Clock.instance().stop();
+		board.setBoundaryPolicy( policy );
+		updateBoundaryMenuLabel( label );
+	}
+
+	private void updateBoundaryMenuLabel( String label )
+	{	MenuSite.getMyMenuItem( this, BOUNDARY_MENU, null ).setText( "Boundary (" + label + ")" );
 	}
 
 	/** Singleton Accessor. The Universe object itself is manufactured
@@ -164,19 +175,10 @@ public class Universe extends JPanel
 	}
 
 	private void doLoad()
-	{	try
-		{
-			FileInputStream in = new FileInputStream(
-			   Files.userSelected(".",".life","Life File","Load"));
-
-			Clock.instance().stop();		// stop the game and
-			outermostCell.clear();			// clear the board.
-
-			Storable memento = outermostCell.createMemento();
-			memento.load( in );
-			outermostCell.transfer( memento, new Point(0,0), Cell.LOAD );
-
-			in.close();
+	{	try( FileInputStream in = new FileInputStream(
+				Files.userSelected( ".", ".life", "Life File", "Load" ) ) )
+		{	Clock.instance().stop();
+			board.load( in );
 		}
 		catch( IOException theException )
 		{	JOptionPane.showMessageDialog( null, "Read Failed!",
@@ -186,18 +188,10 @@ public class Universe extends JPanel
 	}
 
 	private void doStore()
-	{	try
-		{
-			FileOutputStream out = new FileOutputStream(
-				  Files.userSelected(".",".life","Life File","Write"));
-
-			Clock.instance().stop();		// stop the game
-
-			Storable memento = outermostCell.createMemento();
-			outermostCell.transfer( memento, new Point(0,0), Cell.STORE );
-			memento.flush(out);
-
-			out.close();
+	{	try( FileOutputStream out = new FileOutputStream(
+				Files.userSelected( ".", ".life", "Life File", "Write" ) ) )
+		{	Clock.instance().stop();
+			board.store( out );
 		}
 		catch( IOException theException )
 		{	JOptionPane.showMessageDialog( null, "Write Failed!",

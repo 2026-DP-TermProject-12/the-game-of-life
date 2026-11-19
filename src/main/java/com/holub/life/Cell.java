@@ -23,6 +23,13 @@ public interface Cell
 								Cell northeast, Cell northwest,
 								Cell southeast, Cell southwest );
 
+	/** Computes the next state even if a composite's children were stable. */
+	default boolean figureNextState( Cell north, Cell south, Cell east, Cell west,
+								   Cell northeast, Cell northwest, Cell southeast, Cell southwest,
+								   boolean recalculateAll )
+	{	return figureNextState( north, south, east, west, northeast, northwest, southeast, southwest );
+	}
+
 	/** Access a specific contained cell located at the edge of the
 	 *  composite cell.
 	 *  @param row 		The requested row. Must be on the edge of

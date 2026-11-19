@@ -100,6 +100,10 @@ public final class Neighborhood implements Cell
 	public  Direction isDisruptiveTo(){ return activeEdges; }
 	private	Direction activeEdges = new Direction( Direction.NONE );
 
+	void clearActiveEdges()
+	{	activeEdges.clear();
+	}
+
 	/** Figures the next state of the current neighborhood and the
 	 *  contained neigborhoods (or cells). Does not transition to the
 	 *  next state, however. Note that the neighboring cells are passed
@@ -124,13 +128,21 @@ public final class Neighborhood implements Cell
 									Cell east,		Cell west,
 									Cell northeast, Cell northwest,
 									Cell southeast, Cell southwest )
-	{
-		boolean	nothingHappened = true;
+	{	return figureNextState( north, south, east, west,
+				northeast, northwest, southeast, southwest, false );
+	}
+
+	@Override
+	public boolean figureNextState( Cell north, Cell south, Cell east, Cell west,
+								   Cell northeast, Cell northwest, Cell southeast, Cell southwest,
+								   boolean recalculateAll )
+	{	boolean	nothingHappened = true;
 
 		// Is some ajacent neigborhood active on the edge
 		// that ajoins me?
 
-		if(		amActive
+		if(		recalculateAll
+			||	amActive
 			||	north	 .isDisruptiveTo().the( Direction.SOUTH 	  )
 			||	south	 .isDisruptiveTo().the( Direction.NORTH 	  )
 			||	east	 .isDisruptiveTo().the( Direction.WEST  	  )
@@ -217,18 +229,15 @@ public final class Neighborhood implements Cell
 							;
 					}
 
-					// Tell the cell to change its state. If
-					// the cell changed (the figureNextState request
-					// returned false), then mark the current block as
-					// unstable. Also, if the unstable cell is on the
-					// edge of the block modify activeEdges to
-					//  indicate which edge or edges changed. 
+					// A true result marks this block as active. The edges
+					// are recorded when the changes are applied in transition().
 
 					if( grid[row][column].figureNextState
 						( northCell, 	 southCell,
 						  eastCell,	  	 westCell,
 						  northeastCell, northwestCell,
-						  southeastCell, southwestCell
+						  southeastCell, southwestCell,
+						  recalculateAll
 						)
 					)
 					{   nothingHappened = false;
@@ -256,11 +265,8 @@ public final class Neighborhood implements Cell
 		// outermost neighborhood. It's actually incorrect
 		// for an inner block to touch it because the whole
 		// board has to be locked for edge cells in a subblock
-		// to compute their next state correctly. There's no
-		// race condition since the only place that transition()
-		// is called is from the clock tick, and recursively
-		// from here. As long as the recompute time is less
-		// than the tick interval, everything's copacetic.
+		// to compute their next state correctly. In the Swing app,
+		// each calculation and transition runs on the event thread.
 
 		boolean someSubcellChangedState = false;
 

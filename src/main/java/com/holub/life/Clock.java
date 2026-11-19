@@ -3,8 +3,6 @@ package com.holub.life;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
-import java.util.*;
-import java.util.Timer;		// overrides java.awt.timer
 import com.holub.ui.MenuSite;
 import com.holub.tools.Publisher;
 
@@ -27,8 +25,9 @@ import com.holub.tools.Publisher;
  */
 
 public class Clock
-{	private Timer			clock		= new Timer();
-	private TimerTask		tick		= null;
+{
+	// Swing runs timer callbacks on the same event thread as board edits.
+	private final Timer clock = new Timer( 0, e -> tick() );
 
 	// The clock can't be an everything-is-static singleton because
 	// it creates a menu, and it can't do that until the menus
@@ -57,16 +56,12 @@ public class Clock
 	 */
 
 	public void startTicking( int millisecondsBetweenTicks )
-	{	if(tick != null)
-		{	tick.cancel();
-			tick=null;
-		}
+	{	clock.stop();
 
 		if( millisecondsBetweenTicks > 0 )
-		{	tick =	new TimerTask()
-					{	public void run(){ tick(); }
-					};
-			clock.scheduleAtFixedRate( tick, 0, millisecondsBetweenTicks);
+		{	clock.setInitialDelay( 0 );
+			clock.setDelay( millisecondsBetweenTicks );
+			clock.start();
 		}
 	}
 
