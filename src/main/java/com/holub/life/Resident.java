@@ -64,7 +64,7 @@ public final class Resident implements Cell
 	}
 
 	/**
-	 * Resets the cell to the dead state.
+	 * ResetStates the cell to the dead state.
 	 */
 	public void clear()
 	{	currentState = DeadState.INSTANCE;
