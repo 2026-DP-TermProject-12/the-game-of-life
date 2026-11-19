@@ -77,18 +77,6 @@ public final class Resident implements Cell
 	public CellState getState()
 	{	return currentState;
 	}
-
-	/**
-	 * Updates the current state explicitly.
-	 */
-	public void setState( CellState state )
-	{	if( state == null )
-		{	throw new IllegalArgumentException( "CellState must not be null" );
-		}
-		currentState = state;
-		nextState    = state;
-	}
-
 	/**
 	 * Toggles the cell state between alive and dead.
 	 */
