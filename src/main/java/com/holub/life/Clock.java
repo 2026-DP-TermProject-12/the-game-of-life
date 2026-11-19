@@ -1,9 +1,8 @@
 package com.holub.life;
 
-import javax.swing.*;
-import java.util.*;
-import java.util.Timer;		// overrides java.awt.timer
 import com.holub.tools.Publisher;
+
+import javax.swing.*;
 
 /***
  * The <code>Clock</code> class handles the timing of gameboard
@@ -24,12 +23,12 @@ import com.holub.tools.Publisher;
  */
 
 public class Clock
-{	private Timer			clock		= new Timer();
-	private TimerTask		tick		= null;
+{
+	// Swing runs timer callbacks on the same event thread as board edits.
+	private final Timer clock = new Timer( 0, e -> tick() );
 
 	// The clock no longer creates its own menu (see ClockMenu), so
 	// it can be created before the menus are established.
-	//
 	private Clock()
 	{
 	}
@@ -53,16 +52,12 @@ public class Clock
 	 */
 
 	public void startTicking( int millisecondsBetweenTicks )
-	{	if(tick != null)
-		{	tick.cancel();
-			tick=null;
-		}
+	{	clock.stop();
 
 		if( millisecondsBetweenTicks > 0 )
-		{	tick =	new TimerTask()
-					{	public void run(){ tick(); }
-					};
-			clock.scheduleAtFixedRate( tick, 0, millisecondsBetweenTicks);
+		{	clock.setInitialDelay( 0 );
+			clock.setDelay( millisecondsBetweenTicks );
+			clock.start();
 		}
 	}
 

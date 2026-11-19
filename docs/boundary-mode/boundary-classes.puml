@@ -1,0 +1,38 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Noto Sans CJK KR
+skinparam defaultFontColor #132C35
+skinparam ArrowColor #426269
+skinparam classBackgroundColor #F0F7F5
+skinparam classBorderColor #567279
+skinparam classAttributeIconSize 0
+hide empty members
+
+class Universe <<Swing>>
+
+class LifeBoard {
+  ~setBoundaryPolicy(policy)
+  ~step(): boolean
+  ~load(input)
+}
+
+enum BoundaryPolicy <<Strategy>> {
+  FIXED
+  WRAP_AROUND
+  ~outsideNeighbor(board): Cell
+}
+
+interface Cell
+class Neighborhood {
+  -grid: Cell[][]
+  +edge(row, column): Cell
+  +figureNextState(...): boolean
+  +transition(): boolean
+}
+
+Universe -down-> LifeBoard : step / 모드 선택
+LifeBoard -right-> BoundaryPolicy : 정책 선택
+LifeBoard -down-> Neighborhood : root
+Neighborhood .right.|> Cell
+@enduml
