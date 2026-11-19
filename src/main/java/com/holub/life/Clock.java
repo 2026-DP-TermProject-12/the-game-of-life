@@ -3,6 +3,7 @@ package com.holub.life;
 import com.holub.tools.Publisher;
 
 import javax.swing.*;
+import java.util.function.Consumer;
 
 /***
  * The <code>Clock</code> class handles the timing of gameboard
@@ -25,7 +26,10 @@ import javax.swing.*;
 public class Clock
 {
 	// Swing runs timer callbacks on the same event thread as board edits.
-	private final Timer clock = new Timer( 0, e -> tick() );
+	private final Timer clock = new Timer( 0, e -> {
+		if( !menuIsActive() )
+			tick();
+	} );
 
 	// The clock no longer creates its own menu (see ClockMenu), so
 	// it can be created before the menus are established.
@@ -59,6 +63,11 @@ public class Clock
 			clock.setDelay( millisecondsBetweenTicks );
 			clock.start();
 		}
+		notifyListeners( Listener::playbackChanged );
+	}
+
+	boolean isRunning()
+	{	return clock.isRunning();
 	}
 
 	/** Stop the clock
@@ -89,7 +98,13 @@ public class Clock
 	 *  @see Clock
 	 */
 	public interface Listener
-	{	void tick();
+	{
+		void tick();
+
+		/** Notify observers when playback starts, changes speed, or stops. */
+		default void playbackChanged()
+		{
+		}
 	}
 
 	/** Force the clock to "tick," even if it's not time for
@@ -97,14 +112,11 @@ public class Clock
 	 *  stopped. (Life uses this for single stepping.)
 	 */
 	public void tick()
-	{	publisher.publish
-		(	new Publisher.Distributor()
-			{	public void deliverTo( Object subscriber )
-				{	if( !menuIsActive() )
-						((Listener)subscriber).tick();
-				}
-			}
-		);
+	{	notifyListeners( Listener::tick );
+	}
+
+	private void notifyListeners( Consumer<Listener> action )
+	{	publisher.publish( subscriber -> action.accept( (Listener) subscriber ) );
 	}
 
 	/** Check if any item on the menu bar has been selected.
@@ -114,7 +126,7 @@ public class Clock
 	 *  provides no notification on the order of "some menu item has been
 	 *  selected," so the only way to detect menu-bar activity is to poll
 	 *  it. This method does just that, and returns true if some menu
-	 *  is being displayed. The {@link #tick} method effectively suspends
+	 *  is being displayed. The automatic timer effectively suspends
 	 *  clock ticks as long as a menu is displayed, (which slows down
 	 *  the clock, unfortunately).
 	 *  <p>
