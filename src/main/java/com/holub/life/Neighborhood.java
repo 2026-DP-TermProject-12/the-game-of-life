@@ -1,21 +1,13 @@
 package com.holub.life;
 
-import java.awt.*;
-import java.awt.event.*;
-import java.util.*;
-import java.io.*;
-import javax.swing.*;
-
-import com.holub.io.Files;
-import com.holub.life.Cell;
-import com.holub.ui.MenuSite;
-import com.holub.ui.Colors;
 import com.holub.asynch.ConditionVariable;
+import com.holub.ui.Colors;
 
-import com.holub.life.Cell;
-import com.holub.life.Clock;
-import com.holub.life.Direction;
-import com.holub.life.Storable;
+import java.awt.*;
+import java.io.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 /***
  * A group of {@link Cell} objects. Cells are grouped into neighborhoods
@@ -482,10 +474,16 @@ public final class Neighborhood implements Cell
 	 * and all its sub-neighborhoods. For the moment, I'm storing
 	 * state with serialization, but a future modification might
 	 * rewrite load() and flush() to use XML.
+	 * <p>
+	 * The live cells are kept in a <code>HashSet</code>. On a load,
+	 * {@link #isAlive} is called once for every cell on the board,
+	 * so a list (whose <code>contains()</code> is a linear search)
+	 * made a load take time proportional to (cells x live cells).
+	 * A hash set answers each query in constant time.
 	 */
 
 	private static class NeighborhoodState implements Cell.Memento
-	{	Collection liveCells = new LinkedList();
+	{	Set<Point> liveCells = new HashSet<Point>();
 
 		public NeighborhoodState( InputStream in ) throws IOException
 												{ load(in); }
@@ -494,7 +492,13 @@ public final class Neighborhood implements Cell
 		public void load( InputStream in ) throws IOException
 		{	try
 			{	ObjectInputStream source = new ObjectInputStream( in );
-				liveCells = (Collection)( source.readObject() );
+				Collection<?> loaded = (Collection<?>)( source.readObject() );
+
+				// Files written by older versions hold a LinkedList,
+				// so copy whatever collection was read into a HashSet.
+				liveCells = new HashSet<Point>();
+				for( Object location : loaded )
+					liveCells.add( (Point)location );
 			}
 			catch(ClassNotFoundException e)
 			{	// This exception shouldn't be rethrown as
@@ -525,8 +529,8 @@ public final class Neighborhood implements Cell
 		{	StringBuffer b = new StringBuffer();
 
 			b.append("NeighborhoodState:\n");
-			for( Iterator i = liveCells.iterator(); i.hasNext() ;)
-				b.append( ((Point) i.next()).toString() + "\n" );
+			for( Point location : liveCells )
+				b.append( location.toString() + "\n" );
 			return b.toString();
 		}
 	}
