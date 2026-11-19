@@ -1,0 +1,42 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Noto Sans CJK KR
+skinparam defaultFontColor #132C35
+skinparam ArrowColor #426269
+skinparam sequenceLifeLineBorderColor #8FA6A9
+skinparam sequenceParticipantBackgroundColor #F0F7F5
+skinparam sequenceParticipantBorderColor #567279
+skinparam sequenceGroupBackgroundColor #F0F7F5
+hide footbox
+
+actor "사용자" as Player
+participant "Clock" as Clock
+participant "Universe" as Universe
+participant "LifeBoard" as Board
+participant "BoundaryPolicy" as Policy
+participant "Neighborhood" as Root
+
+Player -> Universe : Wrap Around 선택
+Universe -> Clock : stop()
+Universe -> Board : setBoundaryPolicy(WRAP_AROUND)
+note right of Board : recalculateAll = true\n현재 셀 배치 유지
+
+Player -> Clock : Tick (Single Step)
+Clock -> Universe : tick()
+Universe -> Board : step()
+Board -> Policy : outsideNeighbor(root)
+Policy --> Board : root
+Board -> Root : figureNextState(..., true)
+Root --> Board : 변경 여부
+note right of Board : recalculateAll = false
+alt 변경된 셀이 있음
+  Board -> Root : transition()
+else 안정 상태
+  Board -> Root : clearActiveEdges()
+end
+Board --> Universe : 실제 변경 여부
+opt 화면 갱신이 필요함
+  Universe -> Universe : refreshNow()
+end
+@enduml

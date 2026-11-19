@@ -5,7 +5,10 @@ import com.holub.ui.MenuSite;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -23,14 +26,18 @@ import java.io.IOException;
 
 public class Universe extends JPanel
 {
-	private 		final Cell  	outermostCell;
-	private static	final Universe 	theInstance = new Universe();
+	private final         Neighborhood      outermostCell;
+	private final         LifeBoard         board;
+
+	private static  final String            BOUNDARY_MENU = "Grid:Boundary";
+	private static	final Universe 	        theInstance = new Universe();
 
 	private 		final PatternCatalog 	patternCatalog = new PatternCatalog();
 	private			final PatternPlacer 	patternPlacer = new PatternPlacer();
 	private 		final Object 			boardLock = new Object();
-	private 			  LifePattern 		pendingPattern;
-	private 			  JMenuItem 			editPresetItem;
+
+    private 			  LifePattern 		pendingPattern;
+	private 			  JMenuItem 		editPresetItem;
 
 	/** The default height and width of a Neighborhood in cells.
 	 *  If it's too big, you'll run too slowly because
@@ -62,6 +69,8 @@ public class Universe extends JPanel
 								new Resident()
 							)
 						);
+
+		board = new LifeBoard( outermostCell );
 
 		final Dimension PREFERRED_SIZE =
 						new Dimension
@@ -112,51 +121,47 @@ public class Universe extends JPanel
 					Rectangle bounds = getBounds();
 					bounds.x = 0;
 					bounds.y = 0;
-					outermostCell.userClicked( e.getPoint(), bounds );
+                    synchronized( boardLock )
+                    {   outermostCell.userClicked( e.getPoint(), bounds );
+                    }
 					repaint();
 				}
 			}
 		);
 
-		MenuSite.addLine( this, "Grid", "Clear",
-			new ActionListener()
-			{	public void actionPerformed(ActionEvent e)
-				{	outermostCell.clear();
-					repaint();
-				}
-			}
-		);
+        MenuSite.addLine( this, "Grid", "Clear", event -> {
+            synchronized( boardLock )
+            {
+                outermostCell.clear();
+            }
+            repaint();
+        } );
 
-		MenuSite.addLine			// {=Universe.load.setup}
-		(	this, "Grid", "Load",
-			new ActionListener()
-			{	public void actionPerformed(ActionEvent e)
-				{	doLoad();
-				}
-			}
-		);
+        MenuSite.addLine( this, "Grid", "Load", event -> doLoad() );
+        MenuSite.addLine( this, "Grid", "Store", event -> doStore() );
+        createPresetMenu(); // Register preset menu
+        MenuSite.addLine( this, "Grid", "Exit",
+                event -> System.exit( 0 ) );
 
-		MenuSite.addLine
-		(	this, "Grid", "Store",
-			new ActionListener()
-			{	public void actionPerformed(ActionEvent e)
-				{	doStore();
-				}
-			}
-		);
+		MenuSite.addLine( this, BOUNDARY_MENU, "Fixed",
+				e -> selectBoundary( BoundaryPolicy.FIXED, "Fixed" ) );
+        MenuSite.addLine( this, BOUNDARY_MENU, "Wrap Around",
+				e -> selectBoundary( BoundaryPolicy.WRAP_AROUND, "Wrap Around" ) );
+        updateBoundaryMenuLabel( "Fixed" );
 
-		createPresetMenu(); // Register preset menu
+        Clock.instance().addClockListener( this::advanceGeneration );
+	}
 
-		MenuSite.addLine
-		(	this, "Grid", "Exit",
-			new ActionListener()
-			{	public void actionPerformed(ActionEvent e)
-		        {	System.exit(0);
-		        }
-			}
-		);
+	private void selectBoundary( BoundaryPolicy policy, String label )
+	{	Clock.instance().stop();
+        synchronized( boardLock )
+        {   board.setBoundaryPolicy( policy );
+        }
+        updateBoundaryMenuLabel( label );
+	}
 
-		Clock.instance().addClockListener( this::advanceGeneration ); //{=Universe.clock.subscribe}
+	private void updateBoundaryMenuLabel( String label )
+	{	MenuSite.getMyMenuItem( this, BOUNDARY_MENU, null ).setText( "Boundary (" + label + ")" );
 	}
 
 	/** Singleton Accessor. The Universe object itself is manufactured
@@ -167,7 +172,7 @@ public class Universe extends JPanel
 	{	return theInstance;
 	}
 
-	/**
+    /**
 	 * Registers the Grid preset submenu in catalog order, followed by actions
 	 * that act on the current selection. Editing starts disabled until a pattern
 	 * is selected.
@@ -292,32 +297,27 @@ public class Universe extends JPanel
 	 * redraw if the board changed.
 	 */
 	private void advanceGeneration()
-	{	synchronized( boardLock ) // Serialize generation updates with preset placement.
-		{	if( pendingPattern != null )
-				return;
+	{	boolean changed;
 
-			// Evaluate the board before applying the next generation, then redraw changes.
-			if( outermostCell.figureNextState( Cell.DUMMY, Cell.DUMMY, Cell.DUMMY, Cell.DUMMY,
-					Cell.DUMMY, Cell.DUMMY, Cell.DUMMY, Cell.DUMMY )
-					&& outermostCell.transition() )
-				refreshNow();
-		}
-	}
+        synchronized( boardLock )
+        {   if( pendingPattern != null )
+            {   return;
+            }
+            changed = board.step();
+        }
+
+        if( changed )
+        {   refreshNow();
+        }
+    }
 
 	private void doLoad()
-	{	try
-		{
-			FileInputStream in = new FileInputStream(
-			   Files.userSelected(".",".life","Life File","Load"));
-
-			Clock.instance().stop();		// stop the game and
-			outermostCell.clear();			// clear the board.
-
-			Storable memento = outermostCell.createMemento();
-			memento.load( in );
-			outermostCell.transfer( memento, new Point(0,0), Cell.LOAD );
-
-			in.close();
+	{	try( FileInputStream in = new FileInputStream(
+				Files.userSelected( ".", ".life", "Life File", "Load" ) ) )
+		{	Clock.instance().stop();
+            synchronized( boardLock )
+            {   board.load( in );
+            }
 		}
 		catch( IOException theException )
 		{	JOptionPane.showMessageDialog( null, "Read Failed!",
@@ -327,19 +327,14 @@ public class Universe extends JPanel
 	}
 
 	private void doStore()
-	{	try
-		{
-			FileOutputStream out = new FileOutputStream(
-				  Files.userSelected(".",".life","Life File","Write"));
+	{	try( FileOutputStream out = new FileOutputStream(
+				Files.userSelected( ".", ".life", "Life File", "Write" ) ) )
+		{	Clock.instance().stop();
+            synchronized( boardLock )
+            {   board.store( out );
+            }
 
-			Clock.instance().stop();		// stop the game
-
-			Storable memento = outermostCell.createMemento();
-			outermostCell.transfer( memento, new Point(0,0), Cell.STORE );
-			memento.flush(out);
-
-			out.close();
-		}
+        }
 		catch( IOException theException )
 		{	JOptionPane.showMessageDialog( null, "Write Failed!",
 					"The Game of Life", JOptionPane.ERROR_MESSAGE);
@@ -351,18 +346,16 @@ public class Universe extends JPanel
 	 *  All knowledge of screen size is also encapsulated.
 	 *  (The size is passed into the outermost <code>Cell</code>.)
 	 */
+    @Override
+    public void paint( Graphics g )
+    {	Rectangle panelBounds = getBounds();
+        panelBounds.x = 0;
+        panelBounds.y = 0;
 
-	public void paint(Graphics g)
-	{
-		Rectangle panelBounds = getBounds();
-		Rectangle clipBounds  = g.getClipBounds();
-
-		// The panel bounds is relative to the upper-left
-		// corner of the screen. Pretend that it's at (0,0)
-		panelBounds.x = 0;
-		panelBounds.y = 0;
-		outermostCell.redraw(g, panelBounds, true);		//{=Universe.redraw1}
-	}
+        synchronized( boardLock )
+        {   outermostCell.redraw( g, panelBounds, true );
+        }
+    }
 
 	/** Force a screen refresh by queing a request on
 	 *  the Swing event queue. This is an example of the
@@ -373,25 +366,28 @@ public class Universe extends JPanel
 	 *  have to be refreshed.
 	 */
 
-	private void refreshNow()
-	{	SwingUtilities.invokeLater
-		(	new Runnable()
-			{	public void run()
-				{	Graphics g = getGraphics();
-					if( g == null )		// Universe not displayable
-						return;
-					try
-					{
-						Rectangle panelBounds = getBounds();
-						panelBounds.x = 0;
-						panelBounds.y = 0;
-						outermostCell.redraw(g, panelBounds, false); //{=Universe.redraw2}
-					}
-					finally
-					{	g.dispose();
-					}
-				}
-			}
-		);
-	}
+    private void refreshNow()
+    {	SwingUtilities.invokeLater( new Runnable()
+        {
+            @Override
+            public void run()
+            {	Graphics g = getGraphics();
+                if( g == null )
+                    return;
+
+                try
+                {   Rectangle panelBounds = getBounds();
+                    panelBounds.x = 0;
+                    panelBounds.y = 0;
+
+                    synchronized( boardLock )
+                    {   outermostCell.redraw( g, panelBounds, false );
+                    }
+                }
+                finally
+                {   g.dispose();
+                }
+            }
+        } );
+    }
 }

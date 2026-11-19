@@ -1,0 +1,19 @@
+@startuml
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Noto Sans CJK KR
+skinparam defaultFontColor #132C35
+skinparam ArrowColor #426269
+skinparam usecaseBackgroundColor #F0F7F5
+skinparam usecaseBorderColor #567279
+skinparam actorBorderColor #426269
+
+actor "사용자" as Player
+rectangle "Life Game" {
+  usecase "E 경계 모드 선택" as ChooseBoundary
+  usecase "한 세대 진행" as Step
+}
+Player -- ChooseBoundary
+Player -- Step
+@enduml
