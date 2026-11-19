@@ -131,4 +131,10 @@ public final class Resident implements Cell
 	{	throw new UnsupportedOperationException(
 					"May not create memento of a unitary cell");
 	}
+	/**
+	 * Accepts a CellVisitor for double-dispatch traversal.
+	 */
+	public void accept( CellVisitor visitor )
+	{	visitor.visit( this );
+	}
 }
