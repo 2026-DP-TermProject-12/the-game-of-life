@@ -30,7 +30,7 @@
 | [김태우](https://github.com/rlaxodn0320) | Add a boundary mode. |
 | [박민규](https://github.com/Shorangnavi2) | Apply the State pattern to `Resident`'s next-state logic and use the Visitor pattern to calculate scores by survival pattern. |
 | [손태호](https://github.com/meilleur777) | Separate menu creation from `Clock` and track live cells in a `HashSet`. |
-| [왕쌍치](https://github.com/xianyu12371) | Improve state handling and rendering in `Resident`. |
+| [왕쌍치](https://github.com/xianyu12371) | Separate rendering from state management in Resident. |
 | [장예서](https://github.com/nattierblue) | Add undo and redo. |
 
 ## Original README.txt
