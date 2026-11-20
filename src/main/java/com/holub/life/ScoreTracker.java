@@ -6,7 +6,7 @@ import java.util.Set;
 
 /**
  * Tracks scored survival generations and calculates scores using ScoreVisitor.
- * Stops scoring upon extinction, stabilization, repetition, or max generation cap.
+ * Stops scoring upon extinction, stabilization, repetition, or max GEN cap.
  */
 public class ScoreTracker
 {
@@ -14,13 +14,13 @@ public class ScoreTracker
 	{	RUNNING,
 		EXTINCT,
 		STABILIZED,
-		MAX_GENERATIONS_REACHED
+		MAX_GEN_REACHED
 	}
 
-	private static final int DEFAULT_MAX_GENERATIONS = 500;
-	private static final int POINTS_PER_GENERATION   = 10;
+	private static final int DEFAULT_MAX_GEN = 500;
+	private static final int POINTS_PER_GEN  = 10;
 
-	private final int         maxGenerations;
+	private final int         maxGen;
 	private final Set<BitSet> historyStates = new HashSet<BitSet>();
 
 	private int    scoredGen = 0;
@@ -28,14 +28,14 @@ public class ScoreTracker
 	private Status status    = Status.RUNNING;
 
 	public ScoreTracker()
-	{	this( DEFAULT_MAX_GENERATIONS );
+	{	this( DEFAULT_MAX_GEN );
 	}
 
-	public ScoreTracker( int maxGenerations )
-	{	if( maxGenerations <= 0 )
-		{	throw new IllegalArgumentException( "maxGenerations must be positive" );
+	public ScoreTracker( int maxGen )
+	{	if( maxGen <= 0 )
+		{	throw new IllegalArgumentException( "maxGen must be positive" );
 		}
-		this.maxGenerations = maxGenerations;
+		this.maxGen = maxGen;
 	}
 
 	/**
@@ -61,10 +61,10 @@ public class ScoreTracker
 		}
 
 		scoredGen++;
-		score += POINTS_PER_GENERATION;
+		score += POINTS_PER_GEN;
 
-		if( scoredGen >= maxGenerations )
-		{	status = Status.MAX_GENERATIONS_REACHED;
+		if( scoredGen >= maxGen )
+		{	status = Status.MAX_GEN_REACHED;
 		}
 	}
 

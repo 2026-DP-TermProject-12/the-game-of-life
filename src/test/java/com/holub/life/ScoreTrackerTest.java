@@ -85,7 +85,7 @@ public class ScoreTrackerTest
 	}
 
 	@Test
-	void testMaxGenerationsCap()
+	void testMaxGenCap()
 	{	Neighborhood board = new Neighborhood( 5, new Resident() );
 		setAlive( board, 2, 1 );
 		setAlive( board, 2, 2 );
@@ -95,13 +95,13 @@ public class ScoreTrackerTest
 		nextGeneration( board );
 		tracker.evaluate( board );
 
-		assertEquals( ScoreTracker.Status.MAX_GENERATIONS_REACHED, tracker.getStatus() );
+		assertEquals( ScoreTracker.Status.MAX_GEN_REACHED, tracker.getStatus() );
 		assertEquals( 10, tracker.getScore() );
 		assertEquals( 1, tracker.getScoredGen() );
 
 		nextGeneration( board );
 		tracker.evaluate( board );
-		assertEquals( ScoreTracker.Status.MAX_GENERATIONS_REACHED, tracker.getStatus() );
+		assertEquals( ScoreTracker.Status.MAX_GEN_REACHED, tracker.getStatus() );
 		assertEquals( 10, tracker.getScore() );
 	}
 
