@@ -17,8 +17,8 @@ import java.io.IOException;
  * Coordinates board input, preset actions, boundary selection,
  * and persistence between Swing and the Life model.
  * Creates the composite board and exposes a singleton instance
- * through Universe.instance(). Generation updates and persistence
- * are delegated to LifeBoard.
+ * through Universe.instance(). BoardEditor records edits and delegates
+ * generation updates and persistence to LifeBoard.
  *
  * @include /etc/license.txt
  */
@@ -26,13 +26,14 @@ import java.io.IOException;
 public class Universe extends JPanel
 {
 	private final         Neighborhood      outermostCell;
-	private final         LifeBoard         board;
+	private final BoardEditor editor;
+	private final JMenuItem undoItem;
+	private final JMenuItem redoItem;
 
 	private static  final String            BOUNDARY_MENU = "Grid:Boundary";
 	private static	final Universe 	        theInstance = new Universe();
 
 	private 		final PatternCatalog 	patternCatalog = new PatternCatalog();
-	private			final PatternPlacer 	patternPlacer = new PatternPlacer();
 	private 		final Object 			boardLock = new Object();
 
     private 			  LifePattern 		pendingPattern;
@@ -64,7 +65,7 @@ public class Universe extends JPanel
 							)
 						);
 
-		board = new LifeBoard( outermostCell );
+		editor = new BoardEditor( outermostCell );
 
 		final Dimension PREFERRED_SIZE =
 						new Dimension
@@ -115,21 +116,40 @@ public class Universe extends JPanel
 					Rectangle bounds = getBounds();
 					bounds.x = 0;
 					bounds.y = 0;
-                    synchronized( boardLock )
-                    {   outermostCell.userClicked( e.getPoint(), bounds );
-                    }
+					synchronized( boardLock )
+					{	editor.click( e.getPoint(), bounds );
+					}
+					updateHistoryMenus();
 					repaint();
 				}
 			}
 		);
 
-        MenuSite.addLine( this, "Grid", "Clear", event -> {
-            synchronized( boardLock )
-            {
-                outermostCell.clear();
-            }
-            repaint();
-        } );
+		MenuSite.addLine( this, "Grid", "Clear", event -> {
+			synchronized( boardLock )
+			{	editor.clear();
+			}
+			updateHistoryMenus();
+			repaint();
+		} );
+		MenuSite.addLine( this, "Grid", "Undo", event -> {
+			synchronized( boardLock )
+			{	editor.undo();
+			}
+			updateBoundaryMenuLabel();
+			updateHistoryMenus();
+			repaint();
+		} );
+		MenuSite.addLine( this, "Grid", "Redo", event -> {
+			synchronized( boardLock )
+			{	editor.redo();
+			}
+			updateBoundaryMenuLabel();
+			updateHistoryMenus();
+			repaint();
+		} );
+		undoItem = MenuSite.getMyMenuItem( this, "Grid", "Undo" );
+		redoItem = MenuSite.getMyMenuItem( this, "Grid", "Redo" );
 
         MenuSite.addLine( this, "Grid", "Load", event -> doLoad() );
         MenuSite.addLine( this, "Grid", "Store", event -> doStore() );
@@ -137,25 +157,48 @@ public class Universe extends JPanel
         MenuSite.addLine( this, "Grid", "Exit",
                 event -> System.exit( 0 ) );
 
-		MenuSite.addLine( this, BOUNDARY_MENU, "Fixed",
-				e -> selectBoundary( BoundaryPolicy.FIXED, "Fixed" ) );
-        MenuSite.addLine( this, BOUNDARY_MENU, "Wrap Around",
-				e -> selectBoundary( BoundaryPolicy.WRAP_AROUND, "Wrap Around" ) );
-        updateBoundaryMenuLabel( "Fixed" );
+		for( BoundaryPolicy policy : BoundaryPolicy.values() )
+			MenuSite.addLine( this, BOUNDARY_MENU, boundaryLabel( policy ), e -> selectBoundary( policy ) );
+		updateBoundaryMenuLabel();
 
-        Clock.instance().addClockListener( this::advanceGeneration );
+		Clock.instance().addClockListener( new Clock.Listener()
+		{
+			@Override public void tick()
+			{	advanceGeneration();
+			}
+
+			@Override public void playbackChanged()
+			{	updateHistoryMenus();
+			}
+		} );
+		updateHistoryMenus();
 	}
 
-	private void selectBoundary( BoundaryPolicy policy, String label )
+	private void updateHistoryMenus()
+	{	boolean paused = !Clock.instance().isRunning();
+		undoItem.setEnabled( paused && editor.canUndo() );
+		redoItem.setEnabled( paused && editor.canRedo() );
+	}
+
+	private void selectBoundary( BoundaryPolicy policy )
 	{	Clock.instance().stop();
-        synchronized( boardLock )
-        {   board.setBoundaryPolicy( policy );
-        }
-        updateBoundaryMenuLabel( label );
+		synchronized( boardLock )
+		{	editor.setBoundaryPolicy( policy );
+		}
+		updateBoundaryMenuLabel();
+		updateHistoryMenus();
 	}
 
-	private void updateBoundaryMenuLabel( String label )
-	{	MenuSite.getMyMenuItem( this, BOUNDARY_MENU, null ).setText( "Boundary (" + label + ")" );
+	private static String boundaryLabel( BoundaryPolicy policy )
+	{	return switch( policy )
+		{	case FIXED -> "Fixed";
+			case WRAP_AROUND -> "Wrap Around";
+		};
+	}
+
+	private void updateBoundaryMenuLabel()
+	{	String label = boundaryLabel( editor.boundaryPolicy() );
+		MenuSite.getMyMenuItem( this, BOUNDARY_MENU, null ).setText( "Boundary (" + label + ")" );
 	}
 
 	/** Returns the singleton created during class initialization. */
@@ -224,8 +267,8 @@ public class Universe extends JPanel
 			return;
 
 		// Let the dialog own the draft and wait without holding the board lock.
-		PresetEditorDialog editor = new PresetEditorDialog( this, pendingPattern, outermostCell.widthInCells() );
-		LifePattern editedPattern = editor.showEditor();
+		PresetEditorDialog dialog = new PresetEditorDialog( this, pendingPattern, outermostCell.widthInCells() );
+		LifePattern editedPattern = dialog.showEditor();
 
 		// Publish only an applied result to the placement flow.
 		if( editedPattern != null )
@@ -262,18 +305,19 @@ public class Universe extends JPanel
 		// Validate the click before converting pixels to board coordinates.
 		if( pixelsPerCell > 0 && contains( location ) )
 		{	synchronized( boardLock ) // Keep the board stable through the entire placement.
-			{	placed = patternPlacer.place( outermostCell, pendingPattern,
+			{	placed = editor.place( pendingPattern,
 						location.x / pixelsPerCell, location.y / pixelsPerCell );
 				if( placed )
-				{	Clock.instance().stop(); // Leave the placed pattern ready for an explicit tick.
 					pendingPattern = null;
-				}
 			}
 		}
 
 		// Update Swing controls or show the retry message after releasing the lock.
 		if( placed )
-		{	editPresetItem.setEnabled( false );
+		{	if( Clock.instance().isRunning() )
+				Clock.instance().stop();
+			updateHistoryMenus();
+			editPresetItem.setEnabled( false );
 			setCursor( null );
 			repaint();
 		}
@@ -294,9 +338,10 @@ public class Universe extends JPanel
         {   if( pendingPattern != null )
             {   return;
             }
-            changed = board.step();
+			changed = editor.step();
         }
 
+		updateHistoryMenus();
         if( changed )
         {   refreshNow();
         }
@@ -307,7 +352,8 @@ public class Universe extends JPanel
 				Files.userSelected( ".", ".life", "Life File", "Load" ) ) )
 		{	Clock.instance().stop();
             synchronized( boardLock )
-            {   board.load( in );
+			{	editor.load( in );
+				updateHistoryMenus();
             }
 		}
 		catch( IOException theException )
@@ -322,7 +368,7 @@ public class Universe extends JPanel
 				Files.userSelected( ".", ".life", "Life File", "Write" ) ) )
 		{	Clock.instance().stop();
             synchronized( boardLock )
-            {   board.store( out );
+			{	editor.store( out );
             }
 
         }

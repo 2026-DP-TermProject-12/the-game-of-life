@@ -425,6 +425,16 @@ public final class Neighborhood implements Cell
 	{	return gridSize * grid[0][0].widthInCells();
 	}
 
+	/** Returns whether any leaf cell in this neighborhood is alive. */
+	boolean hasLivingCells()
+	{	for( Cell[] row : grid )
+			for( Cell cell : row )
+			{	if( cell instanceof Neighborhood block ? block.hasLivingCells() : cell.isAlive() )
+					return true;
+			}
+		return false;
+	}
+
 	public void clear()
 	{	activeEdges.clear();
 

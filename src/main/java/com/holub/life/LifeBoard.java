@@ -17,6 +17,10 @@ final class LifeBoard
 	{	this.root = Objects.requireNonNull( root );
 	}
 
+	BoundaryPolicy boundaryPolicy()
+	{	return boundaryPolicy;
+	}
+
 	void setBoundaryPolicy( BoundaryPolicy policy )
 	{	if( boundaryPolicy != Objects.requireNonNull( policy ) )
 		{
@@ -42,7 +46,12 @@ final class LifeBoard
 	void load( InputStream input ) throws IOException
 	{	Storable memento = root.createMemento();
 		memento.load( input );
-		root.clear();
+		restore( memento );
+	}
+
+	/** Rebuild active blocks on the next step under the selected boundary policy. */
+	void restore( Storable memento )
+	{	root.clear();
 		root.transfer( memento, new Point( 0, 0 ), Cell.LOAD );
 		recalculateAll = true;
 	}
