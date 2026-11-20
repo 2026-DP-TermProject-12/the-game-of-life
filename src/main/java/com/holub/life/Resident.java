@@ -2,8 +2,6 @@ package com.holub.life;
 
 import java.awt.*;
 import javax.swing.*;
-import com.holub.ui.Colors;	// Contains constants specifying various
-							// colors not defined in java.awt.Color.
 import com.holub.life.Cell;
 import com.holub.life.Storable;
 import com.holub.life.Direction;
@@ -14,17 +12,21 @@ import com.holub.life.Universe;
  * The Resident class implements a single cell---a "resident" of a
  * block.
  *
+ * It owns the state of the cell and nothing else. What the cell looks
+ * like is decided by its {@link ResidentView}, so the state handling
+ * and the drawing can be read, tested and changed independently.
+ *
  * @include /etc/license.txt
  */
-
 public final class Resident implements Cell
 {
-	private static final Color BORDER_COLOR = Colors.DARK_YELLOW;
-	private static final Color LIVE_COLOR 	= Color.RED;
-	private static final Color DEAD_COLOR   = Colors.LIGHT_YELLOW;
-
 	private boolean amAlive 	= false;
 	private boolean willBeAlive	= false;
+
+	/** Presentation collaborator. It owns the drawing code and the
+	 *  memory needed to skip a repaint, none of which is cell state.
+	 */
+	private final ResidentView view = new ResidentView();
 
 	private boolean isStable(){return amAlive == willBeAlive; }
 
@@ -83,19 +85,13 @@ public final class Resident implements Cell
 		return changed;
 	}
 
+	/** Hand the paint request to the view, which knows the colors and
+	 *  can skip a frame whose appearance did not change. The current
+	 *  state is passed through {@link #isAlive()} so this stays correct
+	 *  even if the state representation changes later.
+	 */
 	public void redraw(Graphics g, Rectangle here, boolean drawAll)
-    {   g = g.create();
-		g.setColor(amAlive ? LIVE_COLOR : DEAD_COLOR );
-		g.fillRect(here.x+1, here.y+1, here.width-1, here.height-1);
-
-		// Doesn't draw a line on the far right and bottom of the
-		// grid, but that's life, so to speak. It's not worth the
-		// code for the special case.
-
-		g.setColor( BORDER_COLOR );
-		g.drawLine( here.x, here.y, here.x, here.y + here.height );
-		g.drawLine( here.x, here.y, here.x + here.width, here.y  );
-		g.dispose();
+	{	view.redraw( g, here, isAlive(), drawAll );
 	}
 
 	public void userClicked(Point here, Rectangle surface)
