@@ -23,9 +23,9 @@ public class ScoreTracker
 	private final int         maxGenerations;
 	private final Set<BitSet> historyStates = new HashSet<BitSet>();
 
-	private int    scoredGenerations = 0;
-	private int    score             = 0;
-	private Status status            = Status.RUNNING;
+	private int    scoredGen = 0;
+	private int    score     = 0;
+	private Status status    = Status.RUNNING;
 
 	public ScoreTracker()
 	{	this( DEFAULT_MAX_GENERATIONS );
@@ -60,27 +60,27 @@ public class ScoreTracker
 			return;
 		}
 
-		scoredGenerations++;
+		scoredGen++;
 		score += POINTS_PER_GENERATION;
 
-		if( scoredGenerations >= maxGenerations )
+		if( scoredGen >= maxGenerations )
 		{	status = Status.MAX_GENERATIONS_REACHED;
 		}
 	}
 
 	public void reset()
 	{	historyStates.clear();
-		scoredGenerations = 0;
-		score             = 0;
-		status            = Status.RUNNING;
+		scoredGen = 0;
+		score     = 0;
+		status    = Status.RUNNING;
 	}
 
 	public int getScore()
 	{	return score;
 	}
 
-	public int getScoredGenerations()
-	{	return scoredGenerations;
+	public int getScoredGen()
+	{	return scoredGen;
 	}
 
 	public Status getStatus()

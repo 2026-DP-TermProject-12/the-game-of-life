@@ -35,7 +35,7 @@ public class ScoreTrackerTest
 
 		assertEquals( ScoreTracker.Status.EXTINCT, tracker.getStatus() );
 		assertEquals( 0, tracker.getScore() );
-		assertEquals( 0, tracker.getScoredGenerations() );
+		assertEquals( 0, tracker.getScoredGen() );
 	}
 
 	@Test
@@ -56,7 +56,7 @@ public class ScoreTrackerTest
 		tracker.evaluate( board );
 		assertEquals( ScoreTracker.Status.STABILIZED, tracker.getStatus() );
 		assertEquals( 10, tracker.getScore() );
-		assertEquals( 1, tracker.getScoredGenerations() );
+		assertEquals( 1, tracker.getScoredGen() );
 	}
 
 	@Test
@@ -81,7 +81,7 @@ public class ScoreTrackerTest
 		tracker.evaluate( board ); // Vertical again -> Stabilized
 		assertEquals( ScoreTracker.Status.STABILIZED, tracker.getStatus() );
 		assertEquals( 20, tracker.getScore() );
-		assertEquals( 2, tracker.getScoredGenerations() );
+		assertEquals( 2, tracker.getScoredGen() );
 	}
 
 	@Test
@@ -97,7 +97,7 @@ public class ScoreTrackerTest
 
 		assertEquals( ScoreTracker.Status.MAX_GENERATIONS_REACHED, tracker.getStatus() );
 		assertEquals( 10, tracker.getScore() );
-		assertEquals( 1, tracker.getScoredGenerations() );
+		assertEquals( 1, tracker.getScoredGen() );
 
 		nextGeneration( board );
 		tracker.evaluate( board );
@@ -124,7 +124,7 @@ public class ScoreTrackerTest
 
 		assertEquals( ScoreTracker.Status.RUNNING, tracker.getStatus() );
 		assertEquals( 20, tracker.getScore() );
-		assertEquals( 2, tracker.getScoredGenerations() );
+		assertEquals( 2, tracker.getScoredGen() );
 	}
 
 	@Test
@@ -146,6 +146,6 @@ public class ScoreTrackerTest
 
 		assertEquals( ScoreTracker.Status.RUNNING, tracker.getStatus() );
 		assertEquals( 50, tracker.getScore() );
-		assertEquals( 5, tracker.getScoredGenerations() );
+		assertEquals( 5, tracker.getScoredGen() );
 	}
 }

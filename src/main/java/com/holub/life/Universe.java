@@ -215,9 +215,9 @@ public class Universe extends JPanel
 	{	Graphics2D g2 = (Graphics2D) g.create();
 		try
 		{	String text = String.format(
-				"Score: %d  |  Scored Gen: %d  |  Status: %s",
+				"Score: %d  |  Scored GEN: %d  |  Status: %s",
 				scoreTracker.getScore(),
-				scoreTracker.getScoredGenerations(),
+				scoreTracker.getScoredGen(),
 				scoreTracker.getStatus() );
 
 			g2.setFont( new Font( Font.SANS_SERIF, Font.BOLD, 12 ) );
