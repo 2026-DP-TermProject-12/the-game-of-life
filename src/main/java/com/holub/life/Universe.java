@@ -211,21 +211,18 @@ public class Universe extends JPanel
 		);
 	}
 
-	/**
-	 * Draws a score HUD overlay at the top-left of the board.
-	 */
 	private void drawScoreHud( Graphics g )
 	{	Graphics2D g2 = (Graphics2D) g.create();
 		try
 		{	String text = String.format(
-				"Score: %d  |  Gen: %d  |  Status: %s",
+				"Score: %d  |  Scored Gen: %d  |  Status: %s",
 				scoreTracker.getScore(),
-				scoreTracker.getGeneration(),
+				scoreTracker.getScoredGenerations(),
 				scoreTracker.getStatus() );
 
 			g2.setFont( new Font( Font.SANS_SERIF, Font.BOLD, 12 ) );
 			FontMetrics fm = g2.getFontMetrics();
-			int boxWidth  = Math.max( fm.stringWidth( text ) + 20, 290 );
+			int boxWidth  = Math.max( fm.stringWidth( text ) + 20, 330 );
 			int boxHeight = fm.getHeight() + 8;
 
 			g2.setColor( new Color( 30, 30, 30 ) );

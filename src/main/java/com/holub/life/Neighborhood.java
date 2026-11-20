@@ -379,23 +379,13 @@ public final class Neighborhood implements Cell
 	}
 
 	/**
-	 * Returns the internal grid of child cells for visitor traversal.
+	 * Traverses all child cells and dispatches the given visitor.
 	 */
-	public Cell[][] getGrid()
-	{	return grid;
-	}
-
-	/**
-	 * Returns the dimension (rows/columns) of this neighborhood grid.
-	 */
-	public int getGridSize()
-	{	return gridSize;
-	}
-
-	/**
-	 * Marks this neighborhood as active so the next generation is computed.
-	 */
-	public void markActive()
-	{	amActive = true;
+	public void visitChildren( CellVisitor visitor )
+	{	for( int row = 0; row < gridSize; row++ )
+		{	for( int col = 0; col < gridSize; col++ )
+			{	grid[row][col].accept( visitor );
+			}
+		}
 	}
 }

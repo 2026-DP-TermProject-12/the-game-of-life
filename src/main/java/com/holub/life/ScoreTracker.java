@@ -1,10 +1,11 @@
 package com.holub.life;
 
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Tracks survival generations and calculates scores using ScoreVisitor.
+ * Tracks scored survival generations and calculates scores using ScoreVisitor.
  * Stops scoring upon extinction, stabilization, repetition, or max generation cap.
  */
 public class ScoreTracker
@@ -19,32 +20,30 @@ public class ScoreTracker
 	private static final int DEFAULT_MAX_GENERATIONS = 500;
 	private static final int POINTS_PER_GENERATION   = 10;
 
-	private final int       maxGenerations;
-	private final Set<Long> historyHashes = new HashSet<Long>();
+	private final int         maxGenerations;
+	private final Set<BitSet> historyStates = new HashSet<BitSet>();
 
-	private int    generation = 0;
-	private int    score      = 0;
-	private Status status     = Status.RUNNING;
+	private int    scoredGenerations = 0;
+	private int    score             = 0;
+	private Status status            = Status.RUNNING;
 
 	public ScoreTracker()
 	{	this( DEFAULT_MAX_GENERATIONS );
 	}
 
 	public ScoreTracker( int maxGenerations )
-	{	this.maxGenerations = maxGenerations;
+	{	if( maxGenerations <= 0 )
+		{	throw new IllegalArgumentException( "maxGenerations must be positive" );
+		}
+		this.maxGenerations = maxGenerations;
 	}
 
 	/**
-	 * Evaluates the current board state and updates score/status.
+	 * Evaluates the current board state after a tick and updates score/status.
 	 */
 	public void evaluate( Cell rootCell )
 	{	if( status != Status.RUNNING )
 		{	return;
-		}
-
-		if( generation >= maxGenerations )
-		{	status = Status.MAX_GENERATIONS_REACHED;
-			return;
 		}
 
 		ScoreVisitor visitor = new ScoreVisitor();
@@ -55,29 +54,33 @@ public class ScoreTracker
 			return;
 		}
 
-		long currentHash = visitor.getBoardHash();
-		if( !historyHashes.add( currentHash ) )
+		BitSet currentState = visitor.getBoardState();
+		if( !historyStates.add( currentState ) )
 		{	status = Status.STABILIZED;
 			return;
 		}
 
-		generation++;
+		scoredGenerations++;
 		score += POINTS_PER_GENERATION;
+
+		if( scoredGenerations >= maxGenerations )
+		{	status = Status.MAX_GENERATIONS_REACHED;
+		}
 	}
 
 	public void reset()
-	{	historyHashes.clear();
-		generation = 0;
-		score      = 0;
-		status     = Status.RUNNING;
+	{	historyStates.clear();
+		scoredGenerations = 0;
+		score             = 0;
+		status            = Status.RUNNING;
 	}
 
 	public int getScore()
 	{	return score;
 	}
 
-	public int getGeneration()
-	{	return generation;
+	public int getScoredGenerations()
+	{	return scoredGenerations;
 	}
 
 	public Status getStatus()
