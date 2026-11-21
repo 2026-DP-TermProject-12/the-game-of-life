@@ -1,134 +1,174 @@
 package com.holub.life;
 
+import com.holub.ui.Colors;
+
 import java.awt.*;
-import javax.swing.*;
-import com.holub.ui.Colors;	// Contains constants specifying various
-							// colors not defined in java.awt.Color.
-import com.holub.life.Cell;
-import com.holub.life.Storable;
-import com.holub.life.Direction;
-import com.holub.life.Neighborhood;
-import com.holub.life.Universe;
 
-/*** ****************************************************************
- * The Resident class implements a single cell---a "resident" of a
- * block.
- *
- * @include /etc/license.txt
+/**
+ * Represents a single cell in the Game of Life.
+ * Delegates next-state evaluation and toggling behavior to CellState.
  */
-
 public final class Resident implements Cell
 {
 	private static final Color BORDER_COLOR = Colors.DARK_YELLOW;
-	private static final Color LIVE_COLOR 	= Color.RED;
+	private static final Color LIVE_COLOR   = Color.RED;
 	private static final Color DEAD_COLOR   = Colors.LIGHT_YELLOW;
 
-	private boolean amAlive 	= false;
-	private boolean willBeAlive	= false;
+	private CellState currentState = DeadState.INSTANCE;
+	private CellState nextState    = DeadState.INSTANCE;
 
-	private boolean isStable(){return amAlive == willBeAlive; }
-
-	/** figure the next state.
-	 *  @return true if the cell is not stable (will change state on the
-	 *  next transition().
+	/**
+	 * Counts living neighbors and delegates next-state decision
+	 * to the current state object.
 	 */
 	public boolean figureNextState(
-							Cell north, 	Cell south,
-							Cell east, 		Cell west,
-							Cell northeast, Cell northwest,
-							Cell southeast, Cell southwest )
-	{
-		verify( north, 		"north"		);
-		verify( south, 		"south"		);
-		verify( east, 		"east"		);
-		verify( west, 		"west"		);
-		verify( northeast,	"northeast"	);
-		verify( northwest,	"northwest" );
-		verify( southeast,	"southeast" );
-		verify( southwest,	"southwest" );
+		Cell north,     Cell south,
+		Cell east,      Cell west,
+		Cell northeast, Cell northwest,
+		Cell southeast, Cell southwest )
+	{	verify( north,     "north" );
+        verify( south,     "south" );
+        verify( east,      "east" );
+        verify( west,      "west" );
+        verify( northeast, "northeast" );
+        verify( northwest, "northwest" );
+        verify( southeast, "southeast" );
+        verify( southwest, "southwest" );
 
-		int neighbors = 0;
+        int liveNeighbors = 0;
 
-		if( north.	  isAlive()) ++neighbors;
-		if( south.	  isAlive()) ++neighbors;
-		if( east. 	  isAlive()) ++neighbors;
-		if( west. 	  isAlive()) ++neighbors;
-		if( northeast.isAlive()) ++neighbors;
-		if( northwest.isAlive()) ++neighbors;
-		if( southeast.isAlive()) ++neighbors;
-		if( southwest.isAlive()) ++neighbors;
+        if( north.isAlive()     ) liveNeighbors++;
+		if( south.isAlive()     ) liveNeighbors++;
+		if( east.isAlive()      ) liveNeighbors++;
+		if( west.isAlive()      ) liveNeighbors++;
+		if( northeast.isAlive() ) liveNeighbors++;
+		if( northwest.isAlive() ) liveNeighbors++;
+		if( southeast.isAlive() ) liveNeighbors++;
+		if( southwest.isAlive() ) liveNeighbors++;
 
-		willBeAlive = (neighbors==3 || (amAlive && neighbors==2));
+		nextState = currentState.computeNextState( liveNeighbors );
 		return !isStable();
 	}
 
-	private void verify( Cell c, String direction )
-	{	assert (c instanceof Resident) || (c == Cell.DUMMY)
-				: "incorrect type for " + direction +  ": " +
-				   c.getClass().getName();
-	}
+    /**
+     * Verifies that a neighbor is an atomic cell or the boundary dummy.
+     */
+    private void verify( Cell cell, String direction )
+    {	assert (cell instanceof Resident) || (cell == Cell.DUMMY)
+            : "incorrect type for " + direction + ": "
+              + cell.getClass().getName();
+    }
 
-	/** This cell is monetary, so it's at every edge of itself. It's
-	 *  an internal error for any position except for (0,0) to be
-	 *  requsted since the width is 1.
+	/**
+	 * Returns true if the cell state will remain unchanged.
 	 */
-	public Cell	edge(int row, int column)
-	{	assert row==0 && column==0;
-		return this;
+	private boolean isStable()
+	{	return currentState == nextState;
 	}
 
-	public boolean transition()
-	{	boolean changed = !isStable();
-		amAlive = willBeAlive;
-		return changed;
+	/**
+	 * Commits the precomputed next state as the current state.
+	 */
+    public boolean transition()
+    {	boolean changed = !isStable();
+        currentState = nextState;
+        return changed;
+    }
+
+	/**
+	 * Checks whether this cell is currently alive.
+	 */
+	public boolean isAlive()
+	{	return currentState.isAlive();
 	}
 
-	public void redraw(Graphics g, Rectangle here, boolean drawAll)
-    {   g = g.create();
-		g.setColor(amAlive ? LIVE_COLOR : DEAD_COLOR );
-		g.fillRect(here.x+1, here.y+1, here.width-1, here.height-1);
+	/**
+	 * ResetStates the cell to the dead state.
+	 */
+	public void clear()
+	{	currentState = DeadState.INSTANCE;
+		nextState    = DeadState.INSTANCE;
+	}
 
-		// Doesn't draw a line on the far right and bottom of the
-		// grid, but that's life, so to speak. It's not worth the
-		// code for the special case.
+	/**
+	 * Returns the current state object of this cell.
+	 */
+	public CellState getState()
+	{	return currentState;
+	}
+
+	/**
+	 * Toggles the cell state between alive and dead.
+	 */
+	public void toggleState()
+	{	currentState = currentState.toggle();
+	}
+
+	/**
+	 * Handles user click interaction by toggling the cell state.
+	 */
+	public void userClicked( Point here, Rectangle surface )
+	{	toggleState();
+	}
+
+	/**
+	 * Renders this cell based on its current state.
+	 */
+	public void redraw( Graphics g, Rectangle here, boolean drawAll )
+	{	g = g.create();
+		g.setColor( isAlive() ? LIVE_COLOR : DEAD_COLOR );
+		g.fillRect( here.x + 1, here.y + 1, here.width - 1, here.height - 1 );
 
 		g.setColor( BORDER_COLOR );
 		g.drawLine( here.x, here.y, here.x, here.y + here.height );
-		g.drawLine( here.x, here.y, here.x + here.width, here.y  );
+		g.drawLine( here.x, here.y, here.x + here.width, here.y );
 		g.dispose();
 	}
 
-	public void userClicked(Point here, Rectangle surface)
-	{	amAlive = !amAlive;
+	/**
+	 * Creates a new Resident instance.
+	 */
+	public Cell create()
+	{	return new Resident();
 	}
 
-	public void	   clear()			{amAlive = willBeAlive = false; }
-	public boolean isAlive()		{return amAlive;			    }
-	public Cell    create()			{return new Resident();			}
-	public int 	   widthInCells()	{return 1;}
+	/**
+	 * Returns the width of a single cell in grid units.
+	 */
+	public int widthInCells()
+	{	return 1;
+	}
+
+    public Cell edge( int row, int column )
+    {	assert row == 0 && column == 0;
+        return this;
+    }
 
 	public Direction isDisruptiveTo()
-	{	return isStable() ? Direction.NONE : Direction.ALL ;
+	{	return isStable() ? Direction.NONE : Direction.ALL;
 	}
 
-	public boolean transfer(Storable blob,Point upperLeft,boolean doLoad)
-	{
-		Memento memento = (Memento)blob;
-		if( doLoad )
-		{	if( amAlive = willBeAlive = memento.isAlive(upperLeft) )
-				return true;
-		}
-		else if( amAlive )  					// store only live cells
-			memento.markAsAlive( upperLeft );
+    /**
+     * Transfers cell state to or from a Storable memento.
+     */
+    public boolean transfer( Storable blob, Point upperLeft, boolean doLoad )
+    {	Cell.Memento memento = (Cell.Memento) blob;
 
-		return false;
-	}
+        if( doLoad )
+        {	boolean loadedAlive = memento.isAlive( upperLeft );
+            currentState = loadedAlive ? AliveState.INSTANCE : DeadState.INSTANCE;
+            nextState    = currentState;
+            return isAlive();
+        }
 
-	/** Mementos must be created by Neighborhood objects. Throw an
-	 *  exception if anybody tries to do it here.
-	 */
+        if( isAlive() )
+            memento.markAsAlive( upperLeft );
+
+        return false;
+    }
+
 	public Storable createMemento()
 	{	throw new UnsupportedOperationException(
-					"May not create memento of a unitary cell");
+			"Cannot create memento of individual Resident" );
 	}
 }

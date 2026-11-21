@@ -153,13 +153,15 @@ public class Universe extends JPanel
 
         MenuSite.addLine( this, "Grid", "Load", event -> doLoad() );
         MenuSite.addLine( this, "Grid", "Store", event -> doStore() );
+
         createPresetMenu(); // Register preset menu
-        MenuSite.addLine( this, "Grid", "Exit",
-                event -> System.exit( 0 ) );
 
 		for( BoundaryPolicy policy : BoundaryPolicy.values() )
 			MenuSite.addLine( this, BOUNDARY_MENU, boundaryLabel( policy ), e -> selectBoundary( policy ) );
 		updateBoundaryMenuLabel();
+
+        MenuSite.addLine( this, "Grid", "Exit",
+                event -> System.exit( 0 ) );
 
 		Clock.instance().addClockListener( new Clock.Listener()
 		{
