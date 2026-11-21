@@ -90,4 +90,42 @@ public class ScoreTracker
 	public boolean isFinished()
 	{	return status != Status.RUNNING;
 	}
+
+    /**
+     * Captures scoring data for undo and redo.
+     */
+    Snapshot createSnapshot()
+    {	return new Snapshot( historyStates, scoredGen, score, status );
+    }
+
+    /**
+     * Restores scoring data without evaluating the board again.
+     */
+    void restore( Snapshot snapshot )
+    {	historyStates.clear();
+        historyStates.addAll( snapshot.historyStates );
+        scoredGen = snapshot.scoredGen;
+        score = snapshot.score;
+        status = snapshot.status;
+    }
+
+    /**
+     * Stores an independent history set and scoring values.
+     * Stored BitSets remain private and are never modified.
+     */
+    static final class Snapshot
+    {
+        private final Set<BitSet> historyStates;
+        private final int scoredGen;
+        private final int score;
+        private final Status status;
+
+        private Snapshot( Set<BitSet> historyStates, int scoredGen,
+                          int score, Status status )
+        {	this.historyStates = new HashSet<BitSet>( historyStates );
+            this.scoredGen = scoredGen;
+            this.score = score;
+            this.status = status;
+        }
+    }
 }
