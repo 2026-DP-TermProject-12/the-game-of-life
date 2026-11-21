@@ -1,21 +1,13 @@
 package com.holub.life;
 
-import java.awt.*;
-import java.awt.event.*;
-import java.util.*;
-import java.io.*;
-import javax.swing.*;
-
-import com.holub.io.Files;
-import com.holub.life.Cell;
-import com.holub.ui.MenuSite;
-import com.holub.ui.Colors;
 import com.holub.asynch.ConditionVariable;
+import com.holub.ui.Colors;
 
-import com.holub.life.Cell;
-import com.holub.life.Clock;
-import com.holub.life.Direction;
-import com.holub.life.Storable;
+import java.awt.*;
+import java.io.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 /***
  * A group of {@link Cell} objects. Cells are grouped into neighborhoods
@@ -100,6 +92,10 @@ public final class Neighborhood implements Cell
 	public  Direction isDisruptiveTo(){ return activeEdges; }
 	private	Direction activeEdges = new Direction( Direction.NONE );
 
+	void clearActiveEdges()
+	{	activeEdges.clear();
+	}
+
 	/** Figures the next state of the current neighborhood and the
 	 *  contained neigborhoods (or cells). Does not transition to the
 	 *  next state, however. Note that the neighboring cells are passed
@@ -124,13 +120,21 @@ public final class Neighborhood implements Cell
 									Cell east,		Cell west,
 									Cell northeast, Cell northwest,
 									Cell southeast, Cell southwest )
-	{
-		boolean	nothingHappened = true;
+	{	return figureNextState( north, south, east, west,
+				northeast, northwest, southeast, southwest, false );
+	}
+
+	@Override
+	public boolean figureNextState( Cell north, Cell south, Cell east, Cell west,
+								   Cell northeast, Cell northwest, Cell southeast, Cell southwest,
+								   boolean recalculateAll )
+	{	boolean	nothingHappened = true;
 
 		// Is some ajacent neigborhood active on the edge
 		// that ajoins me?
 
-		if(		amActive
+		if(		recalculateAll
+			||	amActive
 			||	north	 .isDisruptiveTo().the( Direction.SOUTH 	  )
 			||	south	 .isDisruptiveTo().the( Direction.NORTH 	  )
 			||	east	 .isDisruptiveTo().the( Direction.WEST  	  )
@@ -217,18 +221,15 @@ public final class Neighborhood implements Cell
 							;
 					}
 
-					// Tell the cell to change its state. If
-					// the cell changed (the figureNextState request
-					// returned false), then mark the current block as
-					// unstable. Also, if the unstable cell is on the
-					// edge of the block modify activeEdges to
-					//  indicate which edge or edges changed. 
+					// A true result marks this block as active. The edges
+					// are recorded when the changes are applied in transition().
 
 					if( grid[row][column].figureNextState
 						( northCell, 	 southCell,
 						  eastCell,	  	 westCell,
 						  northeastCell, northwestCell,
-						  southeastCell, southwestCell
+						  southeastCell, southwestCell,
+						  recalculateAll
 						)
 					)
 					{   nothingHappened = false;
@@ -256,11 +257,8 @@ public final class Neighborhood implements Cell
 		// outermost neighborhood. It's actually incorrect
 		// for an inner block to touch it because the whole
 		// board has to be locked for edge cells in a subblock
-		// to compute their next state correctly. There's no
-		// race condition since the only place that transition()
-		// is called is from the clock tick, and recursively
-		// from here. As long as the recompute time is less
-		// than the tick interval, everything's copacetic.
+		// to compute their next state correctly. In the Swing app,
+		// each calculation and transition runs on the event thread.
 
 		boolean someSubcellChangedState = false;
 
@@ -427,6 +425,16 @@ public final class Neighborhood implements Cell
 	{	return gridSize * grid[0][0].widthInCells();
 	}
 
+	/** Returns whether any leaf cell in this neighborhood is alive. */
+	boolean hasLivingCells()
+	{	for( Cell[] row : grid )
+			for( Cell cell : row )
+			{	if( cell instanceof Neighborhood block ? block.hasLivingCells() : cell.isAlive() )
+					return true;
+			}
+		return false;
+	}
+
 	public void clear()
 	{	activeEdges.clear();
 
@@ -476,10 +484,16 @@ public final class Neighborhood implements Cell
 	 * and all its sub-neighborhoods. For the moment, I'm storing
 	 * state with serialization, but a future modification might
 	 * rewrite load() and flush() to use XML.
+	 * <p>
+	 * The live cells are kept in a <code>HashSet</code>. On a load,
+	 * {@link #isAlive} is called once for every cell on the board,
+	 * so a list (whose <code>contains()</code> is a linear search)
+	 * made a load take time proportional to (cells x live cells).
+	 * A hash set answers each query in constant time.
 	 */
 
 	private static class NeighborhoodState implements Cell.Memento
-	{	Collection liveCells = new LinkedList();
+	{	Set<Point> liveCells = new HashSet<Point>();
 
 		public NeighborhoodState( InputStream in ) throws IOException
 												{ load(in); }
@@ -488,7 +502,13 @@ public final class Neighborhood implements Cell
 		public void load( InputStream in ) throws IOException
 		{	try
 			{	ObjectInputStream source = new ObjectInputStream( in );
-				liveCells = (Collection)( source.readObject() );
+				Collection<?> loaded = (Collection<?>)( source.readObject() );
+
+				// Files written by older versions hold a LinkedList,
+				// so copy whatever collection was read into a HashSet.
+				liveCells = new HashSet<Point>();
+				for( Object location : loaded )
+					liveCells.add( (Point)location );
 			}
 			catch(ClassNotFoundException e)
 			{	// This exception shouldn't be rethrown as
@@ -519,8 +539,8 @@ public final class Neighborhood implements Cell
 		{	StringBuffer b = new StringBuffer();
 
 			b.append("NeighborhoodState:\n");
-			for( Iterator i = liveCells.iterator(); i.hasNext() ;)
-				b.append( ((Point) i.next()).toString() + "\n" );
+			for( Point location : liveCells )
+				b.append( location.toString() + "\n" );
 			return b.toString();
 		}
 	}

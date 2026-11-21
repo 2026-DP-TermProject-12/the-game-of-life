@@ -1,7 +1,8 @@
 package com.holub.life;
 
-import java.awt.*;
 import com.holub.ui.Colors;
+
+import java.awt.*;
 
 /**
  * Represents a single cell in the Game of Life.
@@ -25,9 +26,18 @@ public final class Resident implements Cell
 		Cell east,      Cell west,
 		Cell northeast, Cell northwest,
 		Cell southeast, Cell southwest )
-	{	int liveNeighbors = 0;
+	{	verify( north,     "north" );
+        verify( south,     "south" );
+        verify( east,      "east" );
+        verify( west,      "west" );
+        verify( northeast, "northeast" );
+        verify( northwest, "northwest" );
+        verify( southeast, "southeast" );
+        verify( southwest, "southwest" );
 
-		if( north.isAlive()     ) liveNeighbors++;
+        int liveNeighbors = 0;
+
+        if( north.isAlive()     ) liveNeighbors++;
 		if( south.isAlive()     ) liveNeighbors++;
 		if( east.isAlive()      ) liveNeighbors++;
 		if( west.isAlive()      ) liveNeighbors++;
@@ -40,6 +50,15 @@ public final class Resident implements Cell
 		return !isStable();
 	}
 
+    /**
+     * Verifies that a neighbor is an atomic cell or the boundary dummy.
+     */
+    private void verify( Cell cell, String direction )
+    {	assert (cell instanceof Resident) || (cell == Cell.DUMMY)
+            : "incorrect type for " + direction + ": "
+              + cell.getClass().getName();
+    }
+
 	/**
 	 * Returns true if the cell state will remain unchanged.
 	 */
@@ -50,11 +69,11 @@ public final class Resident implements Cell
 	/**
 	 * Commits the precomputed next state as the current state.
 	 */
-	public boolean transition()
-	{	boolean changed = !isStable();
-		currentState = nextState;
-		return changed;
-	}
+    public boolean transition()
+    {	boolean changed = !isStable();
+        currentState = nextState;
+        return changed;
+    }
 
 	/**
 	 * Checks whether this cell is currently alive.
@@ -77,6 +96,7 @@ public final class Resident implements Cell
 	public CellState getState()
 	{	return currentState;
 	}
+
 	/**
 	 * Toggles the cell state between alive and dead.
 	 */
@@ -119,30 +139,33 @@ public final class Resident implements Cell
 	{	return 1;
 	}
 
-	public Cell edge( int row, int column )
-	{	return this;
-	}
+    public Cell edge( int row, int column )
+    {	assert row == 0 && column == 0;
+        return this;
+    }
 
 	public Direction isDisruptiveTo()
 	{	return isStable() ? Direction.NONE : Direction.ALL;
 	}
 
-	/**
-	 * Transfers cell state to or from a Storable memento.
-	 */
-	public boolean transfer( Storable blob, Point upperLeft, boolean doLoad )
-	{	Neighborhood.Memento memento = (Neighborhood.Memento) blob;
-		if( doLoad )
-		{	boolean loadedAlive = memento.isAlive( upperLeft );
-			currentState = loadedAlive ? AliveState.INSTANCE : DeadState.INSTANCE;
-			nextState    = currentState;
-			return isAlive();
-		}
-		if( isAlive() )
-		{	memento.markAsAlive( upperLeft );
-		}
-		return false;
-	}
+    /**
+     * Transfers cell state to or from a Storable memento.
+     */
+    public boolean transfer( Storable blob, Point upperLeft, boolean doLoad )
+    {	Cell.Memento memento = (Cell.Memento) blob;
+
+        if( doLoad )
+        {	boolean loadedAlive = memento.isAlive( upperLeft );
+            currentState = loadedAlive ? AliveState.INSTANCE : DeadState.INSTANCE;
+            nextState    = currentState;
+            return isAlive();
+        }
+
+        if( isAlive() )
+            memento.markAsAlive( upperLeft );
+
+        return false;
+    }
 
 	public Storable createMemento()
 	{	throw new UnsupportedOperationException(
