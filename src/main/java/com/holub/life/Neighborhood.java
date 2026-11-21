@@ -544,4 +544,22 @@ public final class Neighborhood implements Cell
 			return b.toString();
 		}
 	}
+
+    /**
+     * Accepts a visitor using double dispatch.
+     */
+    public void accept( CellVisitor visitor )
+    {	visitor.visit( this );
+    }
+
+    /**
+     * Visits the children in a consistent row and column order.
+     */
+    public void visitChildren( CellVisitor visitor )
+    {	for( int row = 0; row < gridSize; row++ )
+        {	for( int column = 0; column < gridSize; column++ )
+            {	grid[row][column].accept( visitor );
+            }
+        }
+    }
 }

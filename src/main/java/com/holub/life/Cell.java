@@ -1,7 +1,6 @@
 package com.holub.life;
-import java.awt.*;
 
-import com.holub.life.Storable;
+import java.awt.*;
 
 /***
  * This interface is the basic unit that comprises a life board.
@@ -133,6 +132,11 @@ public interface Cell
 	 */
 	Storable createMemento();
 
+    /**
+     * Accepts a visitor for operations on the cell hierarchy.
+     */
+    void accept( CellVisitor visitor );
+
 	/** The DUMMY Singleton represents a permanently dead (thus stable)
 	 * 	cell. It's used for the edges of the grid. It's a singleton.
 	 * 	The Dummy class is private, but it is accessed through
@@ -154,11 +158,10 @@ public interface Cell
 		public void 	 clear()		   	{						  }
 		public int 		 widthInCells()  	{return 0;				  }
 		public boolean	 transition()		{return false;			  }
-
-		public void	userClicked(Point h, Rectangle s				){}
-		public void redraw 		(Graphics g, Rectangle here,
-												 boolean drawAll	){}
-
+        public void      accept( CellVisitor visitor               ) {}
+		public void	     userClicked( Point h, Rectangle s		   ) {}
+		public void      redraw( Graphics g, Rectangle here,
+												 boolean drawAll   ) {}
 		public boolean transfer( Storable m, Point ul, boolean load )
 		{	return false;
 		}

@@ -25,19 +25,22 @@ import java.io.IOException;
 
 public class Universe extends JPanel
 {
-	private final         Neighborhood      outermostCell;
-	private final BoardEditor editor;
-	private final JMenuItem undoItem;
-	private final JMenuItem redoItem;
+	private final        Neighborhood   outermostCell;
+	private final        BoardEditor    editor;
+	private final        JMenuItem      undoItem;
+	private final        JMenuItem      redoItem;
 
-	private static  final String            BOUNDARY_MENU = "Grid:Boundary";
-	private static	final Universe 	        theInstance = new Universe();
+	private static final String         BOUNDARY_MENU   = "Grid:Boundary";
+	private static final Universe       theInstance     = new Universe();
 
-	private 		final PatternCatalog 	patternCatalog = new PatternCatalog();
-	private 		final Object 			boardLock = new Object();
+	private final        PatternCatalog patternCatalog  = new PatternCatalog();
+	private final        Object 		boardLock       = new Object();
 
-    private 			  LifePattern 		pendingPattern;
-	private 			  JMenuItem 		editPresetItem;
+    private 			 LifePattern 	pendingPattern;
+	private 			 JMenuItem 		editPresetItem;
+
+    private final        ScoreTracker   scoreTracker    = new ScoreTracker();
+    private final        JLabel         statusBar       = new JLabel();
 
 	/** The default height and width of a Neighborhood in cells.
 	 *  If it's too big, you'll run too slowly because
@@ -65,7 +68,18 @@ public class Universe extends JPanel
 							)
 						);
 
-		editor = new BoardEditor( outermostCell );
+        editor = new BoardEditor( outermostCell, scoreTracker );
+
+        statusBar.setOpaque( true );
+        statusBar.setBackground( new Color( 245, 245, 245 ) );
+        statusBar.setForeground( new Color( 40, 40, 40 ) );
+        statusBar.setFont( new Font( Font.SANS_SERIF, Font.PLAIN, 12 ) );
+        statusBar.setBorder( BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(
+                        0, 0, 1, 0, new Color( 210, 210, 210 ) ),
+                BorderFactory.createEmptyBorder( 6, 10, 6, 10 ) ) );
+
+        updateStatusBar();
 
 		final Dimension PREFERRED_SIZE =
 						new Dimension
@@ -120,7 +134,8 @@ public class Universe extends JPanel
 					{	editor.click( e.getPoint(), bounds );
 					}
 					updateHistoryMenus();
-					repaint();
+                    updateStatusBar();
+                    repaint();
 				}
 			}
 		);
@@ -130,7 +145,8 @@ public class Universe extends JPanel
 			{	editor.clear();
 			}
 			updateHistoryMenus();
-			repaint();
+            updateStatusBar();
+            repaint();
 		} );
 		MenuSite.addLine( this, "Grid", "Undo", event -> {
 			synchronized( boardLock )
@@ -138,7 +154,8 @@ public class Universe extends JPanel
 			}
 			updateBoundaryMenuLabel();
 			updateHistoryMenus();
-			repaint();
+            updateStatusBar();
+            repaint();
 		} );
 		MenuSite.addLine( this, "Grid", "Redo", event -> {
 			synchronized( boardLock )
@@ -146,7 +163,8 @@ public class Universe extends JPanel
 			}
 			updateBoundaryMenuLabel();
 			updateHistoryMenus();
-			repaint();
+            updateStatusBar();
+            repaint();
 		} );
 		undoItem = MenuSite.getMyMenuItem( this, "Grid", "Undo" );
 		redoItem = MenuSite.getMyMenuItem( this, "Grid", "Redo" );
@@ -156,8 +174,9 @@ public class Universe extends JPanel
 
         createPresetMenu(); // Register preset menu
 
-		for( BoundaryPolicy policy : BoundaryPolicy.values() )
-			MenuSite.addLine( this, BOUNDARY_MENU, boundaryLabel( policy ), e -> selectBoundary( policy ) );
+        for( BoundaryPolicy policy : BoundaryPolicy.values() )
+            MenuSite.addLine( this, BOUNDARY_MENU, boundaryLabel( policy ),
+                    e -> selectBoundary( policy ) );
 		updateBoundaryMenuLabel();
 
         MenuSite.addLine( this, "Grid", "Exit",
@@ -182,14 +201,18 @@ public class Universe extends JPanel
 		redoItem.setEnabled( paused && editor.canRedo() );
 	}
 
-	private void selectBoundary( BoundaryPolicy policy )
-	{	Clock.instance().stop();
-		synchronized( boardLock )
-		{	editor.setBoundaryPolicy( policy );
-		}
-		updateBoundaryMenuLabel();
-		updateHistoryMenus();
-	}
+    private void selectBoundary( BoundaryPolicy policy )
+    {	Clock.instance().stop();
+
+        synchronized( boardLock )
+        {	editor.setBoundaryPolicy( policy );
+        }
+
+        updateBoundaryMenuLabel();
+        updateHistoryMenus();
+        updateStatusBar();
+        repaint();
+    }
 
 	private static String boundaryLabel( BoundaryPolicy policy )
 	{	return switch( policy )
@@ -319,7 +342,8 @@ public class Universe extends JPanel
 		{	if( Clock.instance().isRunning() )
 				Clock.instance().stop();
 			updateHistoryMenus();
-			editPresetItem.setEnabled( false );
+            updateStatusBar();
+            editPresetItem.setEnabled( false );
 			setCursor( null );
 			repaint();
 		}
@@ -333,20 +357,17 @@ public class Universe extends JPanel
 	 * next generation under the same lock used for placement and requests a
 	 * redraw if the board changed.
 	 */
-	private void advanceGeneration()
-	{	boolean changed;
+    private void advanceGeneration()
+    {	synchronized( boardLock )
+        {	if( pendingPattern != null )
+                return;
 
-        synchronized( boardLock )
-        {   if( pendingPattern != null )
-            {   return;
-            }
-			changed = editor.step();
+            editor.step();
         }
 
-		updateHistoryMenus();
-        if( changed )
-        {   refreshNow();
-        }
+        updateHistoryMenus();
+        updateStatusBar();
+        refreshNow();
     }
 
 	private void doLoad()
@@ -362,7 +383,8 @@ public class Universe extends JPanel
 		{	JOptionPane.showMessageDialog( null, "Read Failed!",
 					"The Game of Life", JOptionPane.ERROR_MESSAGE);
 		}
-		repaint();
+        updateStatusBar();
+        repaint();
 	}
 
 	private void doStore()
@@ -392,7 +414,7 @@ public class Universe extends JPanel
         panelBounds.y = 0;
 
         synchronized( boardLock )
-        {   outermostCell.redraw( g, panelBounds, true );
+        {	outermostCell.redraw( g, panelBounds, true );
         }
     }
 
@@ -410,18 +432,42 @@ public class Universe extends JPanel
                     return;
 
                 try
-                {   Rectangle panelBounds = getBounds();
+                {	Rectangle panelBounds = getBounds();
                     panelBounds.x = 0;
                     panelBounds.y = 0;
 
                     synchronized( boardLock )
-                    {   outermostCell.redraw( g, panelBounds, false );
+                    {	outermostCell.redraw( g, panelBounds, false );
                     }
                 }
                 finally
-                {   g.dispose();
+                {	g.dispose();
                 }
             }
         } );
+    }
+
+    /**
+     * Returns the status component displayed above the board.
+     */
+    JComponent statusBar()
+    {	return statusBar;
+    }
+
+    /**
+     * Updates the status text after a board or scoring action.
+     */
+    private void updateStatusBar()
+    {	String text;
+
+        synchronized( boardLock )
+        {	text = String.format(
+                "Score: %d  |  Scored GEN: %d  |  Status: %s",
+                scoreTracker.getScore(),
+                scoreTracker.getScoredGen(),
+                scoreTracker.getStatus() );
+        }
+
+        statusBar.setText( text );
     }
 }

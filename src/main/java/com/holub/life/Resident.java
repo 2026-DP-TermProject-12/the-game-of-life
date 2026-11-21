@@ -171,4 +171,11 @@ public final class Resident implements Cell
 	{	throw new UnsupportedOperationException(
 			"Cannot create memento of individual Resident" );
 	}
+
+    /**
+     * Accepts a visitor using double dispatch.
+     */
+    public void accept( CellVisitor visitor )
+    {	visitor.visit( this );
+    }
 }
