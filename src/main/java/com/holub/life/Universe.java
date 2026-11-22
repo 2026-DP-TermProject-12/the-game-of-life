@@ -10,8 +10,8 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 
 /**
  * Coordinates board input, preset actions, boundary selection,
@@ -391,14 +391,15 @@ public class Universe extends JPanel
 	}
 
 	private void doStore()
-	{	try( FileOutputStream out = new FileOutputStream(
-				Files.userSelected( ".", ".life", "Life File", "Write" ) ) )
-		{	Clock.instance().stop();
-            synchronized( boardLock )
-			{	editor.store( out );
-            }
-
-        }
+	{	try
+		{	Path destination = Files.userSelected(".", ".life", "Life File", "Write" ).toPath();
+			Clock.instance().stop();
+			new LifeFileStore().store( destination, output -> {
+				synchronized( boardLock )
+				{	editor.store( output );
+				}
+			} );
+		}
 		catch( IOException theException )
 		{	JOptionPane.showMessageDialog( null, "Write Failed!",
 					"The Game of Life", JOptionPane.ERROR_MESSAGE);
