@@ -1,21 +1,31 @@
 package com.holub.life;
 
-import com.holub.ui.Colors;
-
-import java.awt.*;
+import java.awt.Graphics;
+import java.awt.Point;
+import java.awt.Rectangle;
 
 /**
  * Represents a single cell in the Game of Life.
- * Delegates next-state evaluation and toggling behavior to CellState.
+ * Delegates state behavior to CellState and rendering to ResidentView.
  */
 public final class Resident implements Cell
 {
-	private static final Color BORDER_COLOR = Colors.DARK_YELLOW;
-	private static final Color LIVE_COLOR   = Color.RED;
-	private static final Color DEAD_COLOR   = Colors.LIGHT_YELLOW;
-
 	private CellState currentState = DeadState.INSTANCE;
 	private CellState nextState    = DeadState.INSTANCE;
+
+	private final RendererSelection renderers;
+	private final ResidentView view;
+
+	/** Creates a cell with the standard rendering strategy. */
+	public Resident()
+	{	this( new RendererSelection( DefaultCellRenderer.instance() ) );
+	}
+
+	/** Creates a cell using the board's shared strategy selection. */
+	Resident( RendererSelection renderers )
+	{	this.renderers = renderers;
+		view = new ResidentView( renderers );
+	}
 
 	/**
 	 * Counts living neighbors and delegates next-state decision
@@ -83,7 +93,7 @@ public final class Resident implements Cell
 	}
 
 	/**
-	 * ResetStates the cell to the dead state.
+	 * Resets the current and next states to dead.
 	 */
 	public void clear()
 	{	currentState = DeadState.INSTANCE;
@@ -112,24 +122,17 @@ public final class Resident implements Cell
 	}
 
 	/**
-	 * Renders this cell based on its current state.
+	 * Delegates rendering using the current cell state.
 	 */
 	public void redraw( Graphics g, Rectangle here, boolean drawAll )
-	{	g = g.create();
-		g.setColor( isAlive() ? LIVE_COLOR : DEAD_COLOR );
-		g.fillRect( here.x + 1, here.y + 1, here.width - 1, here.height - 1 );
-
-		g.setColor( BORDER_COLOR );
-		g.drawLine( here.x, here.y, here.x, here.y + here.height );
-		g.drawLine( here.x, here.y, here.x + here.width, here.y );
-		g.dispose();
+	{	view.redraw( g, here, isAlive(), drawAll );
 	}
 
 	/**
 	 * Creates a new Resident instance.
 	 */
 	public Cell create()
-	{	return new Resident();
+	{	return new Resident( renderers );
 	}
 
 	/**

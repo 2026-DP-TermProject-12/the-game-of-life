@@ -345,7 +345,8 @@ public final class Neighborhood implements Cell
 			return;
 		try
 		{
-			oneLastRefreshRequired = false;
+			// Repaint descendants to erase the active border drawn over them.
+			boolean redrawChildren = drawAll || oneLastRefreshRequired;
 			int compoundWidth = here.width;
 			Rectangle subcell = new Rectangle(	here.x, here.y,
 											here.width  / gridSize,
@@ -362,7 +363,7 @@ public final class Neighborhood implements Cell
 
 			for( int row = 0; row < gridSize; ++row )
 			{   for( int column = 0; column < gridSize; ++column )
-				{   grid[row][column].redraw( g, subcell, drawAll );	// {=Neighborhood.redraw3}
+				{   grid[row][column].redraw( g, subcell, redrawChildren );	// {=Neighborhood.redraw3}
 				    subcell.translate( subcell.width, 0);
 				}
 				subcell.translate(-compoundWidth, subcell.height);
@@ -379,6 +380,7 @@ public final class Neighborhood implements Cell
 			}
 
 			g.dispose();
+			oneLastRefreshRequired = false;
 		}
 		catch( InterruptedException e ) 
 		{	// thrown from waitForTrue. Just

@@ -25,22 +25,24 @@ import java.io.IOException;
 
 public class Universe extends JPanel
 {
-	private final        Neighborhood   outermostCell;
-	private final        BoardEditor    editor;
-	private final        JMenuItem      undoItem;
-	private final        JMenuItem      redoItem;
+	private final        Neighborhood       outermostCell;
+	private final        BoardEditor        editor;
+	private final        JMenuItem          undoItem;
+	private final        JMenuItem          redoItem;
+	private final        RendererSelection  renderers
+                                                = new RendererSelection( DefaultCellRenderer.instance() );
 
-	private static final String         BOUNDARY_MENU   = "Grid:Boundary";
-	private static final Universe       theInstance     = new Universe();
+	private static final String             BOUNDARY_MENU   = "Grid:Boundary";
+	private static final Universe           theInstance     = new Universe();
 
-	private final        PatternCatalog patternCatalog  = new PatternCatalog();
-	private final        Object 		boardLock       = new Object();
+	private final        PatternCatalog     patternCatalog  = new PatternCatalog();
+	private final        Object 		    boardLock       = new Object();
 
-    private 			 LifePattern 	pendingPattern;
-	private 			 JMenuItem 		editPresetItem;
+    private 			 LifePattern 	    pendingPattern;
+	private 			 JMenuItem 		    editPresetItem;
 
-    private final        ScoreTracker   scoreTracker    = new ScoreTracker();
-    private final        JLabel         statusBar       = new JLabel();
+    private final        ScoreTracker       scoreTracker    = new ScoreTracker();
+    private final        JLabel             statusBar       = new JLabel();
 
 	/** The default height and width of a Neighborhood in cells.
 	 *  If it's too big, you'll run too slowly because
@@ -64,7 +66,7 @@ public class Universe extends JPanel
 						(	DEFAULT_GRID_SIZE,
 							new Neighborhood
 							(	DEFAULT_GRID_SIZE,
-								new Resident()
+								new Resident( renderers )
 							)
 						);
 
@@ -173,6 +175,7 @@ public class Universe extends JPanel
         MenuSite.addLine( this, "Grid", "Store", event -> doStore() );
 
         createPresetMenu(); // Register preset menu
+		new CellShapeMenu( renderers, this::repaint ).install();
 
         for( BoundaryPolicy policy : BoundaryPolicy.values() )
             MenuSite.addLine( this, BOUNDARY_MENU, boundaryLabel( policy ),
