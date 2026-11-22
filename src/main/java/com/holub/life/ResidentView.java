@@ -11,7 +11,8 @@ import java.awt.Rectangle;
  */
 final class ResidentView
 {
-	private final CellRenderer renderer;
+	private final RendererSelection renderers;
+	private CellRenderer lastPaintedRenderer;
 
 	/** True once this view has painted at least one frame, so that a
 	 *  cell is never skipped before it has been drawn for the first time.
@@ -24,7 +25,11 @@ final class ResidentView
 	}
 
 	ResidentView( CellRenderer renderer )
-	{	this.renderer = renderer;
+	{	this( new RendererSelection( renderer ) );
+	}
+
+	ResidentView( RendererSelection renderers )
+	{	this.renderers = java.util.Objects.requireNonNull( renderers );
 	}
 
 	/**
@@ -36,12 +41,15 @@ final class ResidentView
 	 * @param drawAll true to paint even if the appearance did not change
 	 */
 	void redraw( Graphics g, Rectangle here, boolean alive, boolean drawAll )
-	{	if( painted && !drawAll && alive == lastPaintedAlive )
+	{	CellRenderer renderer = renderers.renderer();
+		if( painted && !drawAll && alive == lastPaintedAlive
+			&& renderer == lastPaintedRenderer )
 			return;
 
 		renderer.draw( g, here, alive );
 
 		painted = true;
 		lastPaintedAlive = alive;
+		lastPaintedRenderer = renderer;
 	}
 }

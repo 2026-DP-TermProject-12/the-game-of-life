@@ -123,4 +123,3 @@ class ResidentRenderTest
 		assertEquals( Direction.NONE, cell.isDisruptiveTo() );
 	}
 }
-D

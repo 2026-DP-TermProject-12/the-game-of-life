@@ -1,58 +1,82 @@
 package com.holub.life;
 
-import java.awt.Point;
-import java.awt.Rectangle;
+import javax.swing.undo.AbstractUndoableEdit;
+import javax.swing.undo.UndoManager;
+import java.awt.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import javax.swing.undo.AbstractUndoableEdit;
-import javax.swing.undo.UndoManager;
 
 /** Records board edits and generations in the order received from the UI and clock. */
 final class BoardEditor
 {
-	private final Neighborhood board;
-	private final LifeBoard generations;
-	private final PatternPlacer placer = new PatternPlacer();
-	private final UndoManager history = new UndoManager();
+	private final Neighborhood  board;
+	private final LifeBoard     generations;
+	private final PatternPlacer placer          = new PatternPlacer();
+	private final UndoManager   history         = new UndoManager();
+    private final ScoreTracker  scoreTracker;
 
-	BoardEditor( Neighborhood board )
-	{	this.board = board;
-		generations = new LifeBoard( board );
-	}
+    BoardEditor( Neighborhood board )
+    {	this( board, new ScoreTracker() );
+    }
 
-	void click( Point point, Rectangle bounds )
-	{	executeAndRecord( () -> {
-			board.userClicked( point, bounds );
-			return true;
-		}, false );
-	}
+    BoardEditor( Neighborhood board, ScoreTracker scoreTracker )
+    {	this.board = board;
+        this.scoreTracker = scoreTracker;
+        generations = new LifeBoard( board );
+    }
 
-	void clear()
-	{	if( !board.hasLivingCells() )
-			return;
+    void click( Point point, Rectangle bounds )
+    {	executeAndRecord( () -> {
+            board.userClicked( point, bounds );
+            scoreTracker.reset();
+            return true;
+        }, false );
+    }
 
-		executeAndRecord( () -> {
-			board.clear();
-			return true;
-		}, false );
-	}
+    void clear()
+    {	if( !board.hasLivingCells() )
+        {	scoreTracker.reset();
+            return;
+        }
 
-	boolean step()
-	{	return executeAndRecord( generations::step, true );
-	}
+        executeAndRecord( () -> {
+            board.clear();
+            scoreTracker.reset();
+            return true;
+        }, false );
+    }
 
-	boolean place( LifePattern pattern, int column, int row )
-	{	return executeAndRecord( () -> placer.place( board, pattern, column, row ), false );
-	}
+    boolean step()
+    {	return executeAndRecord( () -> {
+            boolean changed = generations.step();
+            scoreTracker.evaluate( board );
+            return changed;
+        }, true );
+    }
 
-	void setBoundaryPolicy( BoundaryPolicy policy )
-	{	BoundaryPolicy before = generations.boundaryPolicy();
-		if( policy == before )
-			return;
-		generations.setBoundaryPolicy( policy );
-		history.addEdit( new BoundaryEdit( before, policy ) );
-	}
+    boolean place( LifePattern pattern, int column, int row )
+    {	return executeAndRecord( () -> {
+            boolean placed = placer.place( board, pattern, column, row );
+            if( placed )
+                scoreTracker.reset();
+            return placed;
+        }, false );
+    }
+
+    void setBoundaryPolicy( BoundaryPolicy policy )
+    {	BoundaryPolicy before = generations.boundaryPolicy();
+        if( policy == before )
+            return;
+
+        ScoreTracker.Snapshot scoreBefore = scoreTracker.createSnapshot();
+
+        generations.setBoundaryPolicy( policy );
+        scoreTracker.reset();
+
+        history.addEdit( new BoundaryEdit(
+                before, policy, scoreBefore, scoreTracker.createSnapshot() ) );
+    }
 
 	BoundaryPolicy boundaryPolicy()
 	{	return generations.boundaryPolicy();
@@ -76,10 +100,11 @@ final class BoardEditor
 			history.redo();
 	}
 
-	void load( InputStream in ) throws IOException
-	{	generations.load( in );
-		history.discardAllEdits();
-	}
+    void load( InputStream in ) throws IOException
+    {	generations.load( in );
+        scoreTracker.reset();
+        history.discardAllEdits();
+    }
 
 	void store( OutputStream out ) throws IOException
 	{	generations.store( out );
@@ -100,49 +125,73 @@ final class BoardEditor
 		boolean apply();
 	}
 
-	/** Executes one action and restores its snapshots for later undo and redo. */
-	private final class BoardEdit extends AbstractUndoableEdit
-	{
-		private Storable before;
-		private Storable after;
+    /**
+     * Restores board and scoring snapshots for undo and redo.
+     */
+    private final class BoardEdit extends AbstractUndoableEdit
+    {
+        private Storable                before;
+        private Storable                after;
+        private ScoreTracker.Snapshot   scoreBefore;
+        private ScoreTracker.Snapshot   scoreAfter;
 
-		boolean execute( BoardAction action )
-		{	before = board.createMemento();
-			boolean needsSnapshot = action.apply();
-			after = needsSnapshot ? board.createMemento() : before;
-			return needsSnapshot;
-		}
+        boolean execute( BoardAction action )
+        {	before = board.createMemento();
+            scoreBefore = scoreTracker.createSnapshot();
 
-		@Override public void undo()
-		{	super.undo();
-			generations.restore( before );
-		}
+            boolean changed = action.apply();
 
-		@Override public void redo()
-		{	super.redo();
-			generations.restore( after );
-		}
-	}
+            after = changed ? board.createMemento() : before;
+            scoreAfter = scoreTracker.createSnapshot();
+            return changed;
+        }
 
-	/** Restores a boundary selection without advancing or copying the board. */
-	private final class BoundaryEdit extends AbstractUndoableEdit
-	{
-		private final BoundaryPolicy before;
-		private final BoundaryPolicy after;
+        @Override
+        public void undo()
+        {	super.undo();
+            generations.restore( before );
+            scoreTracker.restore( scoreBefore );
+        }
 
-		BoundaryEdit( BoundaryPolicy before, BoundaryPolicy after )
-		{	this.before = before;
-			this.after = after;
-		}
+        @Override
+        public void redo()
+        {	super.redo();
+            generations.restore( after );
+            scoreTracker.restore( scoreAfter );
+        }
+    }
 
-		@Override public void undo()
-		{	super.undo();
-			generations.setBoundaryPolicy( before );
-		}
+    /**
+     * Restores boundary policy and scoring without advancing the board.
+     */
+    private final class BoundaryEdit extends AbstractUndoableEdit
+    {
+        private final BoundaryPolicy        before;
+        private final BoundaryPolicy        after;
+        private final ScoreTracker.Snapshot scoreBefore;
+        private final ScoreTracker.Snapshot scoreAfter;
 
-		@Override public void redo()
-		{	super.redo();
-			generations.setBoundaryPolicy( after );
-		}
-	}
+        BoundaryEdit( BoundaryPolicy before, BoundaryPolicy after,
+                      ScoreTracker.Snapshot scoreBefore,
+                      ScoreTracker.Snapshot scoreAfter )
+        {	this.before = before;
+            this.after = after;
+            this.scoreBefore = scoreBefore;
+            this.scoreAfter = scoreAfter;
+        }
+
+        @Override
+        public void undo()
+        {	super.undo();
+            generations.setBoundaryPolicy( before );
+            scoreTracker.restore( scoreBefore );
+        }
+
+        @Override
+        public void redo()
+        {	super.redo();
+            generations.setBoundaryPolicy( after );
+            scoreTracker.restore( scoreAfter );
+        }
+    }
 }

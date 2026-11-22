@@ -4,6 +4,7 @@ import com.holub.ui.MenuSite;
 import java.awt.GraphicsEnvironment;
 import javax.swing.JFrame;
 import javax.swing.JMenuItem;
+import javax.swing.JMenu;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,9 +60,27 @@ class HistoryMenuTest
 				assertTrue( redo.isEnabled() );
 				redo.doClick( 0 );
 				assertEquals( "Boundary (Wrap Around)", label.getText() );
+
+				JMenu shapes = null;
+				for( int i = 0; i < frame.getJMenuBar().getMenuCount(); ++i )
+				{	JMenu candidate = frame.getJMenuBar().getMenu( i );
+					if( candidate.getText().startsWith( "Cell Shape (" ) )
+						shapes = candidate;
+				}
+				assertNotNull( shapes );
+				assertEquals( 3, shapes.getItemCount() );
+				Clock.instance().startTicking( 10000 );
+				String[] shapeLabels = { "Red Square", "Green Circle", "Blue Triangle" };
+				for( int i : new int[]{ 1, 2, 0 } )
+				{	assertTrue( shapes.getItem( i ).isEnabled() );
+					shapes.getItem( i ).doClick( 0 );
+					assertEquals( "Cell Shape (" + shapeLabels[i] + ")", shapes.getText() );
+					assertTrue( Clock.instance().isRunning() );
+				}
 			}
 			finally
-			{	frame.dispose();
+			{	Clock.instance().stop();
+				frame.dispose();
 			}
 		} );
 	}
