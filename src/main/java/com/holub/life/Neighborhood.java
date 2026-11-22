@@ -4,8 +4,6 @@ import com.holub.asynch.ConditionVariable;
 import com.holub.ui.Colors;
 
 import java.awt.*;
-import java.io.*;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -451,7 +449,7 @@ public final class Neighborhood implements Cell
 	 *  memento if they happen to be alive.
 	 */
 
-	public boolean transfer(Storable memento, Point corner,
+	public boolean transfer(Cell.Memento memento, Point corner,
 														boolean load)
 	{ 	int   subcellWidth	= grid[0][0].widthInCells();
 		int   myWidth		= widthInCells();
@@ -475,60 +473,48 @@ public final class Neighborhood implements Cell
 		return amActive;
 	}
 
-	public Storable createMemento()
+	public Cell.Memento createMemento()
 	{	Memento m = new NeighborhoodState();
 		transfer(m, new Point(0,0), Cell.STORE);
 		return m;
 	}
 
-	/**
-	 * The NeighborhoodState stores the state of this neighborhood
-	 * and all its sub-neighborhoods. For the moment, I'm storing
-	 * state with serialization, but a future modification might
-	 * rewrite load() and flush() to use XML.
-	 * <p>
-	 * The live cells are kept in a <code>HashSet</code>. On a load,
-	 * {@link #isAlive} is called once for every cell on the board,
-	 * so a list (whose <code>contains()</code> is a linear search)
-	 * made a load take time proportional to (cells x live cells).
-	 * A hash set answers each query in constant time.
-	 */
+	/** Collects logical coordinates without changing active blocks or edge flags. */
+	BoardSnapshot snapshot()
+	{	Set<BoardSnapshot.Position> positions = new HashSet<>();
+		collectPositions( positions, 0, 0 );
+		return new BoardSnapshot( widthInCells(), positions );
+	}
 
+	private void collectPositions( Set<BoardSnapshot.Position> positions, int left, int top )
+	{	int width = grid[0][0].widthInCells();
+		for( int row = 0; row < gridSize; ++row )
+			for( int column = 0; column < gridSize; ++column )
+			{	Cell cell = grid[row][column];
+				int x = left + column * width;
+				int y = top + row * width;
+				if( cell instanceof Neighborhood block )
+					block.collectPositions( positions, x, y );
+				else if( cell.isAlive() )
+					positions.add( new BoardSnapshot.Position( x, y ) );
+			}
+	}
+
+	/** Validates before clearing and adapts file data to the internal memento. */
+	void restoreSnapshot( BoardSnapshot snapshot )
+	{	if( snapshot.size() != widthInCells() )
+			throw new IllegalArgumentException( "Snapshot dimensions do not match the board" );
+		NeighborhoodState state = new NeighborhoodState();
+		for( BoardSnapshot.Position position : snapshot.liveCells() )
+			state.markAsAlive( new Point( position.column(), position.row() ) );
+		clear();
+		transfer( state, new Point( 0, 0 ), Cell.LOAD );
+	}
+
+	/** Internal undo/redo state with no file or stream responsibilities. */
 	private static class NeighborhoodState implements Cell.Memento
-	{	Set<Point> liveCells = new HashSet<Point>();
+	{	private final Set<Point> liveCells = new HashSet<>();
 
-		public NeighborhoodState( InputStream in ) throws IOException
-												{ load(in); }
-		public NeighborhoodState( 			   ){			}
-
-		public void load( InputStream in ) throws IOException
-		{	try
-			{	ObjectInputStream source = new ObjectInputStream( in );
-				Collection<?> loaded = (Collection<?>)( source.readObject() );
-
-				// Files written by older versions hold a LinkedList,
-				// so copy whatever collection was read into a HashSet.
-				liveCells = new HashSet<Point>();
-				for( Object location : loaded )
-					liveCells.add( (Point)location );
-			}
-			catch(ClassNotFoundException e)
-			{	// This exception shouldn't be rethrown as
-				// a ClassNotFoundException because the
-				// outside world shouldn't know (or care) that we're
-				// using serialization to load the object. Nothring
-				// wrong with treating it as an I/O error, however.
-
-				throw new IOException(
-							"Internal Error: Class not found on load");
-			}
-		}
-
-		public void flush( OutputStream out ) throws IOException
-		{	ObjectOutputStream sink = new ObjectOutputStream(out);
-			sink.writeObject( liveCells );
-		}
-	
 		public void markAsAlive(Point location)
 		{	liveCells.add( new Point( location ) );
 		}

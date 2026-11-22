@@ -10,8 +10,7 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 /***
- * Tests the live-cell memento of {@link Neighborhood}, whose
- * live-cell collection was changed from a LinkedList to a HashSet.
+ * Checks board snapshot persistence through the codec, including legacy lists.
  */
 
 class NeighborhoodStateTest
@@ -82,24 +81,15 @@ class NeighborhoodStateTest
 		board.userClicked( new Point( column * CELL_SIZE + 1, row * CELL_SIZE + 1 ), surface );
 	}
 
-	/** Same steps as Universe.doStore(). Note that createMemento()
-	 *  already stores the live cells, and transfer() stores them
-	 *  again, so a list would hold every live cell twice.
-	 */
 	private byte[] store( Neighborhood board ) throws IOException
-	{	Storable memento = board.createMemento();
-		board.transfer( memento, new Point( 0, 0 ), Cell.STORE );
-
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		memento.flush( out );
+	{	ByteArrayOutputStream out = new ByteArrayOutputStream();
+		new LifeFileCodec().write( board.snapshot(), out );
 		return out.toByteArray();
 	}
 
 	private void load( Neighborhood board, InputStream in ) throws IOException
-	{	board.clear();
-		Storable memento = board.createMemento();
-		memento.load( in );
-		board.transfer( memento, new Point( 0, 0 ), Cell.LOAD );
+	{	BoardSnapshot snapshot = new LifeFileCodec().read( in, board.widthInCells() );
+		new LifeBoard( board ).load( snapshot );
 	}
 
 	private Collection<?> readLiveCells( byte[] saved ) throws Exception

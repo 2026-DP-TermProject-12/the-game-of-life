@@ -152,12 +152,10 @@ public final class Resident implements Cell
 	}
 
     /**
-     * Transfers cell state to or from a Storable memento.
+     * Transfers cell state to or from an in-memory memento.
      */
-    public boolean transfer( Storable blob, Point upperLeft, boolean doLoad )
-    {	Cell.Memento memento = (Cell.Memento) blob;
-
-        if( doLoad )
+    public boolean transfer( Cell.Memento memento, Point upperLeft, boolean doLoad )
+    {	if( doLoad )
         {	boolean loadedAlive = memento.isAlive( upperLeft );
             currentState = loadedAlive ? AliveState.INSTANCE : DeadState.INSTANCE;
             nextState    = currentState;
@@ -170,7 +168,7 @@ public final class Resident implements Cell
         return false;
     }
 
-	public Storable createMemento()
+	public Cell.Memento createMemento()
 	{	throw new UnsupportedOperationException(
 			"Cannot create memento of individual Resident" );
 	}

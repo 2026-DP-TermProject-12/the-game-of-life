@@ -9,16 +9,18 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Optional;
 
 /**
  * Coordinates board input, preset actions, boundary selection,
  * and persistence between Swing and the Life model.
  * Creates the composite board and exposes a singleton instance
  * through Universe.instance(). BoardEditor records edits and delegates
- * generation updates and persistence to LifeBoard.
+ * generation updates to LifeBoard. LifeFileStore handles file I/O using
+ * immutable snapshots captured from the editor.
  *
  * @include /etc/license.txt
  */
@@ -36,6 +38,7 @@ public class Universe extends JPanel
 	private static final Universe           theInstance     = new Universe();
 
 	private final        PatternCatalog     patternCatalog  = new PatternCatalog();
+	private final        LifeFileStore      files           = new LifeFileStore();
 	private final        Object 		    boardLock       = new Object();
 
     private 			 LifePattern 	    pendingPattern;
@@ -374,34 +377,42 @@ public class Universe extends JPanel
     }
 
 	private void doLoad()
-	{	try( FileInputStream in = new FileInputStream(
-				Files.userSelected( ".", ".life", "Life File", "Load" ) ) )
-		{	Clock.instance().stop();
-            synchronized( boardLock )
-			{	editor.load( in );
+	{	Optional<Path> selected = Files.select( ".", ".life", "Life File", "Load" )
+				.map( File::toPath );
+		if( selected.isEmpty() )
+			return;
+		Clock.instance().stop();
+		try
+		{	BoardSnapshot snapshot = files.load( selected.get(), outermostCell.widthInCells() );
+			synchronized( boardLock )
+			{	editor.load( snapshot );
 				updateHistoryMenus();
-            }
+			}
 		}
-		catch( IOException theException )
-		{	JOptionPane.showMessageDialog( null, "Read Failed!",
-					"The Game of Life", JOptionPane.ERROR_MESSAGE);
+		catch( IOException failure )
+		{	JOptionPane.showMessageDialog( this, "Read Failed!",
+					"The Game of Life", JOptionPane.ERROR_MESSAGE );
 		}
-        updateStatusBar();
-        repaint();
+		updateStatusBar();
+		repaint();
 	}
 
 	private void doStore()
-	{	try( FileOutputStream out = new FileOutputStream(
-				Files.userSelected( ".", ".life", "Life File", "Write" ) ) )
-		{	Clock.instance().stop();
-            synchronized( boardLock )
-			{	editor.store( out );
-            }
-
-        }
-		catch( IOException theException )
-		{	JOptionPane.showMessageDialog( null, "Write Failed!",
-					"The Game of Life", JOptionPane.ERROR_MESSAGE);
+	{	Optional<Path> selected = Files.select( ".", ".life", "Life File", "Write" )
+				.map( File::toPath );
+		if( selected.isEmpty() )
+			return;
+		Clock.instance().stop();
+		BoardSnapshot snapshot;
+		synchronized( boardLock )
+		{	snapshot = editor.snapshot();
+		}
+		try
+		{	files.store( selected.get(), snapshot );
+		}
+		catch( IOException failure )
+		{	JOptionPane.showMessageDialog( this, "Write Failed!",
+					"The Game of Life", JOptionPane.ERROR_MESSAGE );
 		}
 	}
 

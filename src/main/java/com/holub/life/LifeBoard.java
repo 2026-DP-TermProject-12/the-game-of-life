@@ -1,9 +1,6 @@
 package com.holub.life;
 
 import java.awt.Point;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Objects;
 
 /** Runs each generation on the existing composite board. */
@@ -43,20 +40,19 @@ final class LifeBoard
 		return root.transition();
 	}
 
-	void load( InputStream input ) throws IOException
-	{	Storable memento = root.createMemento();
-		memento.load( input );
-		restore( memento );
-	}
-
-	/** Rebuild active blocks on the next step under the selected boundary policy. */
-	void restore( Storable memento )
-	{	root.clear();
-		root.transfer( memento, new Point( 0, 0 ), Cell.LOAD );
+	void load( BoardSnapshot snapshot )
+	{	root.restoreSnapshot( snapshot );
 		recalculateAll = true;
 	}
 
-	void store( OutputStream output ) throws IOException
-	{	root.createMemento().flush( output );
+	BoardSnapshot snapshot()
+	{	return root.snapshot();
+	}
+
+	/** Rebuild active blocks on the next step under the selected boundary policy. */
+	void restore( Cell.Memento memento )
+	{	root.clear();
+		root.transfer( memento, new Point( 0, 0 ), Cell.LOAD );
+		recalculateAll = true;
 	}
 }

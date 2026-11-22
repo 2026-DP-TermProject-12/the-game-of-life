@@ -6,6 +6,7 @@ import java.awt.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -84,7 +85,7 @@ class BoardScoreIntegrationTest
 
     private byte[] store() throws IOException
     {	ByteArrayOutputStream output = new ByteArrayOutputStream();
-        editor.store( output );
+        new LifeFileCodec().write( editor.snapshot(), output );
         return output.toByteArray();
     }
 
@@ -425,7 +426,7 @@ class BoardScoreIntegrationTest
         editor.step();
         expectScore( 2, ScoreTracker.Status.STABILIZED );
 
-        editor.load( new ByteArrayInputStream( file ) );
+        editor.load( new LifeFileCodec().read( new ByteArrayInputStream( file ), board.widthInCells() ) );
         assertEquals( saved.liveCells(), liveCells() );
         expectScore( 0, ScoreTracker.Status.RUNNING );
         assertFalse( editor.canUndo() );
@@ -454,11 +455,49 @@ class BoardScoreIntegrationTest
         expectView( first );
 
         assertThrows( IOException.class,
-                () -> editor.load( new ByteArrayInputStream( new byte[0] ) ) );
+                () -> editor.load( new LifeFileCodec().read( new ByteArrayInputStream( new byte[0] ), board.widthInCells() ) ) );
 
         expectView( first );
         assertTrue( editor.canRedo() );
 
+        editor.redo();
+        expectView( second );
+    }
+
+    @Test
+    void invalidCoordinateFilePreservesBoardScoresAndRedo() throws IOException
+    {	placeBlinker();
+        editor.step();
+        View first = view();
+        editor.step();
+        View second = view();
+        editor.undo();
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try( ObjectOutputStream output = new ObjectOutputStream( bytes ) )
+        {	output.writeObject( java.util.List.of( new Point( 1, 1 ), new Point( 8, 0 ) ) );
+        }
+        assertThrows( IOException.class, () -> editor.load( new LifeFileCodec().read(
+                new ByteArrayInputStream( bytes.toByteArray() ), 8 ) ) );
+        expectView( first );
+        assertTrue( editor.canRedo() );
+        editor.redo();
+        expectView( second );
+    }
+
+    @Test
+    void wrongSnapshotDimensionsPreserveBoardScoresAndRedo()
+    {	placeBlinker();
+        editor.step();
+        View first = view();
+        editor.step();
+        View second = view();
+        editor.undo();
+
+        assertThrows( IllegalArgumentException.class, () ->
+                editor.load( new BoardSnapshot( 4, Set.of() ) ) );
+        expectView( first );
+        assertTrue( editor.canRedo() );
         editor.redo();
         expectView( second );
     }

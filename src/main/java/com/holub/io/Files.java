@@ -1,6 +1,7 @@
 package com.holub.io;
 
 import java.io.*;
+import java.util.Optional;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter; // disambiguate from java.io version
 
@@ -35,6 +36,13 @@ public class Files
 						final String description,
 						final String selectButtonText )
 									throws FileNotFoundException
+	{	return select( startHere, extension, description, selectButtonText )
+				.orElseThrow( () -> new FileNotFoundException( "No file selected by user" ) );
+	}
+
+	/** Returns an empty selection on cancel without treating it as an I/O failure. */
+	public static Optional<File> select( final String startHere,
+			final String extension, final String description, final String selectButtonText )
 	{	FileFilter filter = 
 			new FileFilter()
 			{	public boolean accept(File f)
@@ -52,9 +60,9 @@ public class Files
 
 		int result = chooser.showDialog(null,selectButtonText);
 		if(result == JFileChooser.APPROVE_OPTION)
-			return chooser.getSelectedFile();
+			return Optional.of( chooser.getSelectedFile() );
 
-		throw new FileNotFoundException("No file selected by user");
+		return Optional.empty();
 	}
 
 	/** A unit test class for the methods in this class. Run with
