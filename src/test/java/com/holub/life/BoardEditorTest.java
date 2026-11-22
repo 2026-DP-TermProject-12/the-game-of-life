@@ -144,10 +144,10 @@ class BoardEditorTest
 	@Test void storeKeepsHistoryAndLoadStartsNewHistory() throws IOException
 	{	click( 6, 1 );
 		ByteArrayOutputStream file = new ByteArrayOutputStream();
-		editor.store( file );
+		new LifeFileCodec().write( editor.snapshot(), file );
 		editor.undo();
 		expectBoard();
-		editor.load( new ByteArrayInputStream( file.toByteArray() ) );
+		editor.load( new LifeFileCodec().read( new ByteArrayInputStream( file.toByteArray() ), board.widthInCells() ) );
 		editor.undo();
 		editor.redo();
 		expectBoard( new Point( 6, 1 ) );
@@ -162,14 +162,14 @@ class BoardEditorTest
 		{	out.writeObject( legacy );
 		}
 		click( 4, 3 );
-		editor.load( new ByteArrayInputStream( file.toByteArray() ) );
+		editor.load( new LifeFileCodec().read( new ByteArrayInputStream( file.toByteArray() ), board.widthInCells() ) );
 		editor.undo();
 		expectBoard( new Point( 2, 7 ) );
 	}
 
 	@Test void unreadableFilePreservesBoardAndUndo()
 	{	click( 1, 5 );
-		assertThrows( IOException.class, () -> editor.load( new ByteArrayInputStream( new byte[0] ) ) );
+		assertThrows( IOException.class, () -> editor.load( new LifeFileCodec().read( new ByteArrayInputStream( new byte[0] ), board.widthInCells() ) ) );
 		expectBoard( new Point( 1, 5 ) );
 		editor.undo();
 		expectBoard();

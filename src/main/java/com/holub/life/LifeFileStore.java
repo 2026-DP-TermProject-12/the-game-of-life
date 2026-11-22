@@ -1,13 +1,14 @@
 package com.holub.life;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
-/** Writes a complete temporary file before atomically replacing the destination. */
+/** Owns file streams and atomically replaces files encoded by LifeFileCodec. */
 final class LifeFileStore
 {
 	@FunctionalInterface
@@ -30,6 +31,7 @@ final class LifeFileStore
 
 	private final OutputFactory outputs;
 	private final Replacement replacement;
+	private final LifeFileCodec codec = new LifeFileCodec();
 
 	LifeFileStore()
 	{	this( Files::newOutputStream, (source, target) ->
@@ -41,6 +43,18 @@ final class LifeFileStore
 	LifeFileStore( OutputFactory outputs, Replacement replacement )
 	{	this.outputs = Objects.requireNonNull( outputs );
 		this.replacement = Objects.requireNonNull( replacement );
+	}
+
+	/** Reads and closes the file before the caller applies the validated result. */
+	BoardSnapshot load( Path source, int size ) throws IOException
+	{	try( InputStream input = Files.newInputStream( source ) )
+		{	return codec.read( input, size );
+		}
+	}
+
+	void store( Path destination, BoardSnapshot snapshot ) throws IOException
+	{	Objects.requireNonNull( snapshot );
+		store( destination, output -> codec.write( snapshot, output ) );
 	}
 
 	/**

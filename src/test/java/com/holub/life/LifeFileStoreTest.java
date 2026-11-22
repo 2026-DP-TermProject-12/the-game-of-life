@@ -26,7 +26,7 @@ class LifeFileStoreTest
 		Neighborhood board = new Neighborhood( 4, new Resident() );
 		BoardEditor editor = new BoardEditor( board );
 		editor.place( new PatternCatalog().copyOf( "Block" ), 1, 1 );
-		new LifeFileStore().store( target, editor::store );
+		new LifeFileStore().store( target, editor.snapshot() );
 
 		try( ObjectInputStream input = new ObjectInputStream( Files.newInputStream( target ) ) )
 		{	assertEquals( Set.of( new Point( 1, 1 ), new Point( 2, 1 ),
@@ -34,6 +34,21 @@ class LifeFileStoreTest
 		}
 		assertTrue( editor.canUndo() );
 		assertOnlyTargetRemains( target );
+	}
+
+	@Test
+	void snapshotSaveAndLoadAreIndependentOfLaterBoardEdits() throws Exception
+	{	Neighborhood root = new Neighborhood( 2, new Neighborhood( 4, new Resident() ) );
+		BoardEditor editor = new BoardEditor( root );
+		editor.place( new PatternCatalog().copyOf( "Blinker" ), 2, 3 );
+		BoardSnapshot saved = editor.snapshot();
+		editor.clear();
+		LifeFileStore store = new LifeFileStore();
+		Path target = directory.resolve( "snapshot.life" );
+		store.store( target, saved );
+		assertEquals( saved, store.load( target, 8 ) );
+		assertTrue( editor.snapshot().liveCells().isEmpty() );
+		assertTrue( editor.canUndo() );
 	}
 
 	@Test

@@ -99,7 +99,7 @@ public interface Cell
 	 *	@see Cell
 	 */
 
-	interface Memento extends Storable
+	interface Memento
 	{	/** On creation of the memento, indicate that a cell is
 		 *  alive.
 		 */
@@ -115,7 +115,7 @@ public interface Cell
 	 *   of a cell from a memento.
 	 *   @return true if this cell was modified by the transfer.
 	 */
-	boolean transfer( Storable memento, Point upperLeftCorner,
+	boolean transfer( Cell.Memento memento, Point upperLeftCorner,
 													boolean doLoad );
 
 	/** Possible value for the "load" argument to transfer() */
@@ -130,7 +130,7 @@ public interface Cell
 	 *  Other cell implementions should throw an
 	 *  UnsupportedOperationException when this method is called.
 	 */
-	Storable createMemento();
+	Cell.Memento createMemento();
 
     /**
      * Accepts a visitor for operations on the cell hierarchy.
@@ -162,11 +162,11 @@ public interface Cell
 		public void	     userClicked( Point h, Rectangle s		   ) {}
 		public void      redraw( Graphics g, Rectangle here,
 												 boolean drawAll   ) {}
-		public boolean transfer( Storable m, Point ul, boolean load )
+		public boolean transfer( Cell.Memento m, Point ul, boolean load )
 		{	return false;
 		}
 
-		public Storable createMemento()
+		public Cell.Memento createMemento()
 		{	throw new UnsupportedOperationException(
 						"Cannot create memento of dummy block");
 		}

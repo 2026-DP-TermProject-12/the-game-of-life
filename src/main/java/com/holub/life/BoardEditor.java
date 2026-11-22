@@ -3,9 +3,6 @@ package com.holub.life;
 import javax.swing.undo.AbstractUndoableEdit;
 import javax.swing.undo.UndoManager;
 import java.awt.*;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 /** Records board edits and generations in the order received from the UI and clock. */
 final class BoardEditor
@@ -100,14 +97,14 @@ final class BoardEditor
 			history.redo();
 	}
 
-    void load( InputStream in ) throws IOException
-    {	generations.load( in );
-        scoreTracker.reset();
-        history.discardAllEdits();
-    }
+	void load( BoardSnapshot snapshot )
+	{	generations.load( snapshot );
+		scoreTracker.reset();
+		history.discardAllEdits();
+	}
 
-	void store( OutputStream out ) throws IOException
-	{	generations.store( out );
+	BoardSnapshot snapshot()
+	{	return generations.snapshot();
 	}
 
 	boolean canUndo()
@@ -130,8 +127,8 @@ final class BoardEditor
      */
     private final class BoardEdit extends AbstractUndoableEdit
     {
-        private Storable                before;
-        private Storable                after;
+        private Cell.Memento            before;
+        private Cell.Memento            after;
         private ScoreTracker.Snapshot   scoreBefore;
         private ScoreTracker.Snapshot   scoreAfter;
 

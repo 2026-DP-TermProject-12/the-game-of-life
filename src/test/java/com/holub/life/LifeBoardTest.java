@@ -119,14 +119,14 @@ class LifeBoardTest
 		board.setBoundaryPolicy( BoundaryPolicy.WRAP_AROUND );
 		seed( a, b, c );
 		ByteArrayOutputStream saved = new ByteArrayOutputStream();
-		board.store( saved );
+		new LifeFileCodec().write( board.snapshot(), saved );
 
 		try( ObjectInputStream input = new ObjectInputStream( new ByteArrayInputStream( saved.toByteArray() ) ) )
 		{
 			assertEquals( Set.of( a, b, c ), Set.copyOf( ( Collection<?> ) input.readObject() ) );
 		}
 		board.setBoundaryPolicy( BoundaryPolicy.FIXED );
-		board.load( new ByteArrayInputStream( saved.toByteArray() ) );
+		board.load( new LifeFileCodec().read( new ByteArrayInputStream( saved.toByteArray() ), SIZE ) );
 		assertTrue( board.step() );
 		assertLiving();
 	}
@@ -135,7 +135,7 @@ class LifeBoardTest
 	void failedReadLeavesTheExistingPlacementAvailable()
 	{	seed( cell( 20, 19 ), cell( 20, 20 ), cell( 20, 21 ) );
 
-		assertThrows( IOException.class, () -> board.load( new ByteArrayInputStream( new byte[0] ) ) );
+		assertThrows( IOException.class, () -> board.load( new LifeFileCodec().read( new ByteArrayInputStream( new byte[0] ), SIZE ) ) );
 		assertLiving( cell( 20, 19 ), cell( 20, 20 ), cell( 20, 21 ) );
 		assertTrue( board.step() );
 		assertLiving( cell( 19, 20 ), cell( 20, 20 ), cell( 21, 20 ) );
@@ -172,7 +172,7 @@ class LifeBoardTest
 		{
 			output.writeObject( new LinkedList<>( Arrays.asList( cells ) ) );
 		}
-		board.load( new ByteArrayInputStream( saved.toByteArray() ) );
+		board.load( new LifeFileCodec().read( new ByteArrayInputStream( saved.toByteArray() ), SIZE ) );
 	}
 
 	private void assertLiving( Point... expected )

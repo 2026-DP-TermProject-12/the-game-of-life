@@ -161,13 +161,13 @@ class PatternBoundaryIntegrationTest
 	{	board.setBoundaryPolicy( policy );
 		place( "Blinker", 30, 0 );
 		ByteArrayOutputStream saved = new ByteArrayOutputStream();
-		board.store( saved );
+		new LifeFileCodec().write( board.snapshot(), saved );
 
 		Neighborhood loadedRoot = new Neighborhood( 8, new Neighborhood( 8, new Resident() ) );
 		LifeBoard loadedBoard = new LifeBoard( loadedRoot );
 		// The legacy file stores cells only. Configure the policy independently.
 		loadedBoard.setBoundaryPolicy( policy );
-		loadedBoard.load( new ByteArrayInputStream( saved.toByteArray() ) );
+		loadedBoard.load( new LifeFileCodec().read( new ByteArrayInputStream( saved.toByteArray() ), loadedRoot.widthInCells() ) );
 		assertEquals( liveCells( root ), liveCells( loadedRoot ) );
 		for( int generation = 0; generation < 4; generation++ )
 		{	assertEquals( board.step(), loadedBoard.step() );
